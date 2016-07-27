@@ -89,6 +89,7 @@ public class DefaultImporterServiceImpl implements DefaultImporterService {
         ImporterRunnerConfiguration configuration = new ImporterRunnerConfiguration.Builder(sourceNode,
                 destinationPath, executor.getLogger()).skipRootContainerCreation(skipRootContainerCreation).batchSize(
                 batchSize).nbThreads(noImportingThreads).repository(repositoryName).build();
+
         GenericMultiThreadedImporter runner = new GenericMultiThreadedImporter(configuration);
         runner.setTransactionTimeout(transactionTimeout);
         ImporterFilter filter = new EventServiceConfiguratorFilter(false, false, false, false, bulkMode);
@@ -101,6 +102,7 @@ public class DefaultImporterServiceImpl implements DefaultImporterService {
     public String importDocuments(AbstractImporterExecutor executor, String leafType, String folderishType,
             String destinationPath, String sourcePath, boolean skipRootContainerCreation, int batchSize,
             int noImportingThreads, boolean interactive) {
+
         ImporterDocumentModelFactory docModelFactory = getDocumentModelFactory();
         if (docModelFactory instanceof DefaultDocumentModelFactory) {
             DefaultDocumentModelFactory defaultDocModelFactory = (DefaultDocumentModelFactory) docModelFactory;
@@ -111,6 +113,7 @@ public class DefaultImporterServiceImpl implements DefaultImporterService {
         executor.setTransactionTimeout(transactionTimeout);
         String res = importDocuments(executor, destinationPath, sourcePath, skipRootContainerCreation, batchSize,
                 noImportingThreads, interactive);
+
         setDocumentModelFactory(null);
         return res;
 

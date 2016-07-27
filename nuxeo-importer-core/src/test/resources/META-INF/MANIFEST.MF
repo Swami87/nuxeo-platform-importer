@@ -3,3 +3,5 @@ Bundle-ManifestVersion: 1
 Bundle-Name: Nuxeo ECM Test Importer
 Bundle-SymbolicName: org.nuxeo.ecm.platform.importer.core.test;singleton:=true
 Bundle-Version: 1.0.0
+Import-Package: org.nuxeo.ecm.core,
+ org.nuxeo.runtime

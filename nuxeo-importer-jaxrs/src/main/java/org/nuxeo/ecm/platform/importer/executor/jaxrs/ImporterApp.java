@@ -31,10 +31,9 @@ public class ImporterApp extends Application {
 
     @Override
     public Set<Class<?>> getClasses() {
-        HashSet<Class<?>> set = new HashSet<Class<?>>();
+        HashSet<Class<?>> set = new HashSet<>();
         set.add(HttpFileImporterExecutor.class);
         set.add(RandomImporterExecutor.class);
         return set;
     }
-
 }

@@ -288,7 +288,6 @@ public class GenericMultiThreadedImporter implements ImporterRunner {
 
         importTP = new ThreadPoolExecutor(nbThreads, nbThreads, 500L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<Runnable>(queueSize), new NamedThreadFactory("Nuxeo-Importer-"));
-
         initRootTask(importSource, targetContainer, skipRootContainerCreation, log, batchSize, jobName);
 
         rootImportTask.setRootTask();
@@ -323,16 +322,16 @@ public class GenericMultiThreadedImporter implements ImporterRunner {
                 long inbCreatedDocs = getCreatedDocsCounter();
                 long deltaT = ti - lastLogProgressTime;
                 double averageSpeed = 1000 * ((float) (inbCreatedDocs) / (ti - t0));
-                double imediateSpeed = averageSpeed;
+                double immediateSpeed = averageSpeed;
                 if (deltaT > 0) {
-                    imediateSpeed = 1000 * ((float) (inbCreatedDocs - lastCreatedDocCounter) / (deltaT));
+                    immediateSpeed = 1000 * ((float) (inbCreatedDocs - lastCreatedDocCounter) / (deltaT));
                 }
                 log.info(inbCreatedDocs + " docs created");
                 log.info("average speed = " + averageSpeed + " docs/s");
-                log.info("immediate speed = " + imediateSpeed + " docs/s");
+                log.info("immediate speed = " + immediateSpeed + " docs/s");
 
                 if (enablePerfLogging) {
-                    Double[] perfData = { new Double(inbCreatedDocs), averageSpeed, imediateSpeed };
+                    Double[] perfData = {(double)inbCreatedDocs, averageSpeed, immediateSpeed };
                     perfLogger.log(perfData);
                 }
 

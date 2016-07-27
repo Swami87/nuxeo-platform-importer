@@ -90,7 +90,7 @@ public class DefaultImporterComponent extends DefaultComponent {
             }
 
             if (descriptor.getBulkMode() != null) {
-                importerService.setBulkMode(descriptor.getBulkMode().booleanValue());
+                importerService.setBulkMode(descriptor.getBulkMode());
             }
         }
     }

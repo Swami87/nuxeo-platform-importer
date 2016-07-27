@@ -34,7 +34,7 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
 
     private static final Log log = LogFactory.getLog(HttpFileImporterExecutor.class);
 
-    protected DefaultImporterService importerService;
+    private DefaultImporterService importerService;
 
     @Override
     protected Log getJavaLogger() {
@@ -44,11 +44,15 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
     @GET
     @Path("run")
     @Produces("text/plain; charset=UTF-8")
-    public String run(@QueryParam("leafType") String leafType, @QueryParam("folderishType") String folderishType,
-            @QueryParam("inputPath") String inputPath, @QueryParam("targetPath") String targetPath,
-            @QueryParam("skipRootContainerCreation") Boolean skipRootContainerCreation,
-            @QueryParam("batchSize") Integer batchSize, @QueryParam("nbThreads") Integer nbThreads,
-            @QueryParam("interactive") Boolean interactive, @QueryParam("transactionTimeout") Integer transactionTimeout) {
+    public String run( @QueryParam("leafType") String leafType,
+                        @QueryParam("folderishType") String folderishType,
+                        @QueryParam("inputPath") String inputPath,
+                        @QueryParam("targetPath") String targetPath,
+                        @QueryParam("skipRootContainerCreation") Boolean skipRootContainerCreation,
+                        @QueryParam("batchSize") Integer batchSize,
+                        @QueryParam("nbThreads") Integer nbThreads,
+                        @QueryParam("interactive") Boolean interactive,
+                        @QueryParam("transactionTimeout") Integer transactionTimeout) {
 
         if (inputPath == null || targetPath == null) {
             return "Can not import, missing " + (inputPath == null ? "inputPath" : "targetPath");
@@ -80,7 +84,6 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
             return getImporterService().importDocuments(this, targetPath, inputPath, skipRootContainerCreation,
                     batchSize, nbThreads, interactive);
         }
-
     }
 
     @Override
@@ -88,7 +91,7 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
         return doRun(runner, interactive);
     }
 
-    protected DefaultImporterService getImporterService() {
+    private DefaultImporterService getImporterService() {
         if (importerService == null) {
             importerService = Framework.getService(DefaultImporterService.class);
         }

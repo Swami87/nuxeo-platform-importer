@@ -50,15 +50,20 @@ public class RandomImporterExecutor extends AbstractJaxRSImporterExecutor {
     @Path("run")
     @Produces("text/plain; charset=UTF-8")
     public String run(@QueryParam("targetPath") String targetPath,
-            @QueryParam("skipRootContainerCreation") Boolean skipRootContainerCreation,
-            @QueryParam("batchSize") Integer batchSize, @QueryParam("nbThreads") Integer nbThreads,
-            @QueryParam("interactive") Boolean interactive, @QueryParam("nbNodes") Integer nbNodes,
-            @QueryParam("fileSizeKB") Integer fileSizeKB, @QueryParam("onlyText") Boolean onlyText,
-            @QueryParam("nonUniform") Boolean nonUniform, @QueryParam("withProperties") Boolean withProperties,
-            @QueryParam("blockSyncPostCommitProcessing") Boolean blockSyncPostCommitProcessing,
-            @QueryParam("blockAsyncProcessing") Boolean blockAsyncProcessing,
-            @QueryParam("blockIndexing") Boolean blockIndexing, @QueryParam("bulkMode") Boolean bulkMode,
-            @QueryParam("transactionTimeout") Integer transactionTimeout) {
+                      @QueryParam("skipRootContainerCreation") Boolean skipRootContainerCreation,
+                      @QueryParam("batchSize") Integer batchSize,
+                      @QueryParam("nbThreads") Integer nbThreads,
+                      @QueryParam("interactive") Boolean interactive,
+                      @QueryParam("nbNodes") Integer nbNodes,
+                      @QueryParam("fileSizeKB") Integer fileSizeKB,
+                      @QueryParam("onlyText") Boolean onlyText,
+                      @QueryParam("nonUniform") Boolean nonUniform,
+                      @QueryParam("withProperties") Boolean withProperties,
+                      @QueryParam("blockSyncPostCommitProcessing") Boolean blockSyncPostCommitProcessing,
+                      @QueryParam("blockAsyncProcessing") Boolean blockAsyncProcessing,
+                      @QueryParam("blockIndexing") Boolean blockIndexing,
+                      @QueryParam("bulkMode") Boolean bulkMode,
+                      @QueryParam("transactionTimeout") Integer transactionTimeout) {
 
         if (onlyText == null) {
             onlyText = true;
@@ -76,11 +81,15 @@ public class RandomImporterExecutor extends AbstractJaxRSImporterExecutor {
         SourceNode source = RandomTextSourceNode.init(nbNodes, fileSizeKB, onlyText, nonUniform, withProperties);
         getLogger().info("Random text generator initialized");
 
-        ImporterRunnerConfiguration configuration = new ImporterRunnerConfiguration.Builder(source, targetPath,
-                getLogger()).skipRootContainerCreation(skipRootContainerCreation)
+        ImporterRunnerConfiguration configuration = new ImporterRunnerConfiguration.Builder(
+                source,
+                targetPath,
+                getLogger()
+        ).skipRootContainerCreation(skipRootContainerCreation)
                             .batchSize(batchSize)
                             .nbThreads(nbThreads)
                             .build();
+
         GenericMultiThreadedImporter runner = new GenericMultiThreadedImporter(configuration);
 
         ImporterFilter filter = new EventServiceConfiguratorFilter(blockSyncPostCommitProcessing, blockAsyncProcessing,
@@ -89,8 +98,8 @@ public class RandomImporterExecutor extends AbstractJaxRSImporterExecutor {
         if (transactionTimeout != null) {
             Framework.getService(DefaultImporterService.class).setTransactionTimeout(transactionTimeout);
         }
-        String res = run(runner, interactive);
-        return res;
+
+        return run(runner, interactive);
     }
 
     @Override

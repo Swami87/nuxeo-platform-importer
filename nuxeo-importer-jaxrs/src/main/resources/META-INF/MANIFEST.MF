@@ -6,3 +6,5 @@ Bundle-Version: 1.0.0
 Require-Bundle: org.nuxeo.ecm.webengine.core
 Nuxeo-WebModule: org.nuxeo.ecm.platform.importer.executor.jaxrs.ImporterApp
 Nuxeo-Component: OSGI-INF/importer-service-contrib.xml
+Import-Package: javax.ws.rs,
+ org.nuxeo.runtime
