@@ -12,4 +12,6 @@ public class Settings {
     public static final int SESSION_TIMEOUT = 30_000;
 
     public static final String TASK = "task";
+    public static final Integer DEFAULT_PARTITION = 4;
+    public static final Integer DEFAULT_REPLICATION = 1;
 }

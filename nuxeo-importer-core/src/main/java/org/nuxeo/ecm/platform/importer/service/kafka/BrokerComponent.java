@@ -19,9 +19,7 @@ import java.util.Map;
 public class BrokerComponent extends DefaultComponent {
 
     private static final Log log = LogFactory.getLog(DefaultImporterComponent.class);
-    public static final String BROKER_CONFIGURATION_XP = "brokerConfiguration";
-    private Integer mPartition = 4;
-    private Integer mReplication = 1;
+    private static final String BROKER_CONFIGURATION_XP = "brokerConfiguration";
 
     private EventBroker mBroker;
     private BrokerService mBrokerService;
@@ -33,15 +31,18 @@ public class BrokerComponent extends DefaultComponent {
         }
 
         BrokerConfigurationDescriptor descriptor = (BrokerConfigurationDescriptor) contribution;
+
         Integer partition = descriptor.getPartition();
-        if (partition != null) {
-            mPartition = partition;
+        if (partition == null || partition == 0) {
+            partition = Settings.DEFAULT_PARTITION;
         }
+        mBrokerService.setPartition(partition);
 
         Integer replication = descriptor.getReplication();
-        if (replication != null) {
-            mReplication = replication;
+        if (replication == null || replication == 0) {
+            replication = Settings.DEFAULT_REPLICATION;
         }
+        mBrokerService.setReplication(replication);
     }
 
     @Override
@@ -53,8 +54,7 @@ public class BrokerComponent extends DefaultComponent {
         try {
             mBroker = new EventBroker(brokerProps);
             mBroker.start();
-            mBroker.createTopic(Settings.TASK, mPartition, mReplication);
-            mBrokerService = new BrokerServiceImpl();
+            mBrokerService = new BrokerServiceImpl(mBroker);
         } catch (Exception e) {
             log.error(e);
         }

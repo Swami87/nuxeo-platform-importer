@@ -8,7 +8,15 @@ import java.util.Properties;
  */
 public interface BrokerService {
 
-    void populateConsumers(Properties props, int num);
+    void populateConsumers(Properties props);
 
     void terminateServicePool();
+
+    int getPartition();
+
+    void setPartition(int partition);
+
+    int getReplication();
+
+    void setReplication(int replication);
 }
