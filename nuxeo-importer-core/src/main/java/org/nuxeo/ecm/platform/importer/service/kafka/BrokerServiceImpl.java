@@ -4,6 +4,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.nuxeo.ecm.platform.importer.service.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.service.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.settings.Settings;
 
@@ -20,15 +21,26 @@ import java.util.concurrent.TimeUnit;
 public class BrokerServiceImpl implements BrokerService {
 
     private static Log log = LogFactory.getLog(BrokerServiceImpl.class);
-    private ExecutorService consumerExecutor;
+    private EventBroker mBroker;
+    private ExecutorService mConsumerExecutor;
+    private int mPartition;
+    private int mReplication;
+
+    public BrokerServiceImpl(EventBroker broker) {
+        this.mBroker = broker;
+    }
 
     @Override
-    public void populateConsumers(Properties props, int num) {
-        if (num < 1) {
-            num = 1;
+    public void populateConsumers(Properties props) {
+        if (mConsumerExecutor == null) {
+
         }
 
-        consumerExecutor = Executors.newFixedThreadPool(num);
+        int num = mPartition * mReplication;
+
+        mBroker.createTopic(Settings.TASK, mPartition, mReplication);
+
+        mConsumerExecutor = Executors.newFixedThreadPool(num);
 
         for (int i = 0; i < num; i++) {
             Consumer<String, String> consumer = new Consumer<>(props);
@@ -44,19 +56,40 @@ public class BrokerServiceImpl implements BrokerService {
                 }
             };
 
-            consumerExecutor.execute(task);
+            mConsumerExecutor.execute(task);
         }
-        consumerExecutor.shutdown();
+
+        mConsumerExecutor.shutdown();
     }
 
     @Override
     public void terminateServicePool() {
-        if (consumerExecutor != null) {
+        if (mConsumerExecutor != null) {
             try {
-                consumerExecutor.awaitTermination(30, TimeUnit.SECONDS);
+                mConsumerExecutor.awaitTermination(30, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 log.error(e);
             }
         }
+    }
+
+    @Override
+    public int getPartition() {
+        return this.mPartition;
+    }
+
+    @Override
+    public void setPartition(int partition) {
+        this.mPartition = partition;
+    }
+
+    @Override
+    public int getReplication() {
+        return this.mReplication;
+    }
+
+    @Override
+    public void setReplication(int replication) {
+        this.mReplication = replication;
     }
 }

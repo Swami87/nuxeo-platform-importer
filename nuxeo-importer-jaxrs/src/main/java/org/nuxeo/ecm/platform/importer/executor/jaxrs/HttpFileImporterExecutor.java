@@ -77,7 +77,7 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
         // TODO: populate consumers
 
         getImporterService().setTransactionTimeout(transactionTimeout);
-        getBrokerService().populateConsumers(null, nbThreads);
+        getBrokerService().populateConsumers(null);
 
         if (leafType != null || folderishType != null) {
             log.info("Importing with the specified doc types");
