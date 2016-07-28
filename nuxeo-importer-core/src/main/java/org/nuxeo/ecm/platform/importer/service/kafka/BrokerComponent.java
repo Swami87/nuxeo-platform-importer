@@ -74,7 +74,7 @@ public class BrokerComponent extends DefaultComponent {
 
     @Override
     public <T> T getAdapter(Class<T> adapter) {
-        if (adapter.isAssignableFrom(DefaultImporterService.class)) {
+        if (adapter.isAssignableFrom(BrokerService.class)) {
             return adapter.cast(mBrokerService);
         }
         return super.getAdapter(adapter);
