@@ -6,4 +6,10 @@
        <documentModelFactory leafType="File" folderishType="Folder" documentModelFactoryClass="org.nuxeo.ecm.platform.importer.factories.DefaultDocumentModelFactory" />
    </importerConfig>
   </extension>
+
+    <extension target="org.nuxeo.ecm.platform.importer.service.DefaultImporterComponent" point="importerConfiguration">
+        <importerConfig sourceNodeClass ="org.nuxeo.ecm.platform.importer.source.FileWithNonHeritedIndividalMetaDataSourceNode" >
+            <documentModelFactory leafType="File" folderishType="Folder" documentModelFactoryClass="org.nuxeo.ecm.platform.importer.factories.DefaultDocumentModelFactory" />
+        </importerConfig>
+    </extension>
 </component>

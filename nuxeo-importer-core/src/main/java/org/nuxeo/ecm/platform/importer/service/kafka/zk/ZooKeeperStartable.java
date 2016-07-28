@@ -1,9 +1,10 @@
 package org.nuxeo.ecm.platform.importer.service.kafka.zk;
 
-import com.sun.istack.internal.NotNull;
 import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
 import kafka.utils.ZkUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.zookeeper.server.ServerConfig;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig;
@@ -21,6 +22,8 @@ import java.util.concurrent.TimeUnit;
  * © Andre Nechaev 2016
  */
 public class ZooKeeperStartable {
+    private static final Log log = LogFactory.getLog(ZooKeeperStartable.class);
+
     private final ServerConfig mConfiguration = new ServerConfig();
     private ExecutorService mServiceExecutor = Executors.newSingleThreadExecutor();
 
@@ -49,7 +52,7 @@ public class ZooKeeperStartable {
         return mUtils;
     }
 
-    public void setUtils(@NotNull ZkUtils mUtils) {
+    public void setUtils(ZkUtils mUtils) {
         this.mUtils = mUtils;
     }
 
@@ -69,11 +72,11 @@ public class ZooKeeperStartable {
         }
 
         return () -> {
-            System.out.println("Zookeeper started");
+            log.info("Zookeeper started");
             try {
                 mZooKeeperServer.runFromConfig(mConfiguration);
-            } catch(Exception ie) {
-                ie.printStackTrace();
+            } catch(Exception e) {
+                log.error(e);
             }
         };
     }
@@ -85,7 +88,7 @@ public class ZooKeeperStartable {
             shutdown.setAccessible(true);
             shutdown.invoke(mZooKeeperServer);
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            log.error(e);
         }
 
         mServiceExecutor.shutdown();

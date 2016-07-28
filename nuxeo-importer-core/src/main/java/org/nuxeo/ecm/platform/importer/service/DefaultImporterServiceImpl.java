@@ -95,6 +95,7 @@ public class DefaultImporterServiceImpl implements DefaultImporterService {
         ImporterFilter filter = new EventServiceConfiguratorFilter(false, false, false, false, bulkMode);
         runner.addFilter(filter);
         runner.setFactory(getDocumentModelFactory());
+
         return executor.run(runner, interactive);
     }
 

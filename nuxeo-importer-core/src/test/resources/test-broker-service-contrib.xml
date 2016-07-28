@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<component name="org.nuxeo.ecm.platform.importer.service.test.contrib">
+
+    <extension target="org.nuxeo.ecm.platform.importer.service.kafka.BrokerComponent" point="brokerConfiguration">
+
+    </extension>
+</component>

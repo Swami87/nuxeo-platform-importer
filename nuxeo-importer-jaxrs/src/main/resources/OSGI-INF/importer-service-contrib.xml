@@ -6,4 +6,7 @@
        <documentModelFactory leafType="File" folderishType="Folder" documentModelFactoryClass="org.nuxeo.ecm.platform.importer.factories.DefaultDocumentModelFactory" />
    </importerConfig>
   </extension>
+    <extension target="org.nuxeo.ecm.platform.importer.service.kafka.BrokerComponent" point="brokerConfiguration">
+
+    </extension>
 </component>

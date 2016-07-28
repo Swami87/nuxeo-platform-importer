@@ -14,5 +14,9 @@
    </importerConfig>
   </extension>
 
+    <extension target="org.nuxeo.ecm.platform.importer.service.kafka.BrokerComponent" point="brokerConfiguration">
+
+    </extension>
+
 
 </component>

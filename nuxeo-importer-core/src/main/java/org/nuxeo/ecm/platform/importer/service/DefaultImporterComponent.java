@@ -22,15 +22,21 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.platform.importer.factories.DefaultDocumentModelFactory;
 import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
+import org.nuxeo.ecm.platform.importer.service.kafka.broker.EventBroker;
+import org.nuxeo.ecm.platform.importer.settings.Settings;
 import org.nuxeo.ecm.platform.importer.source.FileSourceNode;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 import org.nuxeo.runtime.model.ComponentContext;
 import org.nuxeo.runtime.model.ComponentInstance;
 import org.nuxeo.runtime.model.DefaultComponent;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class DefaultImporterComponent extends DefaultComponent {
 
     private static final Log log = LogFactory.getLog(DefaultImporterComponent.class);
+    private EventBroker mBroker;
 
     protected DefaultImporterService importerService;
 

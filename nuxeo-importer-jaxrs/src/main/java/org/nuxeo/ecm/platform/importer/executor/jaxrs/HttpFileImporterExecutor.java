@@ -27,6 +27,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.platform.importer.base.ImporterRunner;
 import org.nuxeo.ecm.platform.importer.service.DefaultImporterService;
+import org.nuxeo.ecm.platform.importer.service.kafka.BrokerService;
 import org.nuxeo.runtime.api.Framework;
 
 @Path("fileImporter")
@@ -35,6 +36,7 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
     private static final Log log = LogFactory.getLog(HttpFileImporterExecutor.class);
 
     private DefaultImporterService importerService;
+    private BrokerService mBrokerService;
 
     @Override
     protected Log getJavaLogger() {
@@ -72,19 +74,22 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
         if (transactionTimeout == null) {
             transactionTimeout = 0;
         }
+        // TODO: populate consumers
 
         getImporterService().setTransactionTimeout(transactionTimeout);
+        getBrokerService().populateConsumers(null, nbThreads);
 
         if (leafType != null || folderishType != null) {
             log.info("Importing with the specified doc types");
             return getImporterService().importDocuments(this, leafType, folderishType, targetPath, inputPath,
                     skipRootContainerCreation, batchSize, nbThreads, interactive);
         } else {
-            log.info("Importing with the deafult doc types");
+            log.info("Importing with the default doc types");
             return getImporterService().importDocuments(this, targetPath, inputPath, skipRootContainerCreation,
                     batchSize, nbThreads, interactive);
         }
     }
+
 
     @Override
     public String run(ImporterRunner runner, Boolean interactive) {
@@ -97,4 +102,13 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
         }
         return importerService;
     }
+
+    private BrokerService getBrokerService() {
+        if (mBrokerService == null) {
+            mBrokerService = Framework.getService(BrokerService.class);
+        }
+
+        return mBrokerService;
+    }
 }
+

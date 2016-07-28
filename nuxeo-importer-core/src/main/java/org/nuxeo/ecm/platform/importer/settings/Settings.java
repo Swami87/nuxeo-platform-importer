@@ -10,4 +10,6 @@ public class Settings {
 
     public static final int CONNECTION_TIMEOUT = 30_000;
     public static final int SESSION_TIMEOUT = 30_000;
+
+    public static final String TASK = "task";
 }

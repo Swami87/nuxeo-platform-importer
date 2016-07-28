@@ -10,6 +10,8 @@
        <documentModelFactory documentModelFactoryClass="org.nuxeo.ecm.platform.importer.xml.parser.AdvancedScannedFileFactory" />
    </importerConfig>
   </extension>
+    <extension target="org.nuxeo.ecm.platform.importer.service.kafka.BrokerComponent" point="brokerConfiguration">
 
+    </extension>
 
 </component>

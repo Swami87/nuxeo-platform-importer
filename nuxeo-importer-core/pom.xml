@@ -9,6 +9,19 @@
   <artifactId>nuxeo-importer-core</artifactId>
   <name>Nuxeo Importer Core</name>
 
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/*</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
+
+
+
   <dependencies>
     <dependency>
       <groupId>org.apache.kafka</groupId>
@@ -20,11 +33,32 @@
       <artifactId>kafka_2.11</artifactId>
       <version>0.10.0.0</version>
     </dependency>
+      <dependency>
+          <groupId>org.apache.kafka</groupId>
+          <artifactId>kafka-clients</artifactId>
+          <version>0.10.0.0</version>
+          <classifier>test</classifier>
+          <scope>test</scope>
+      </dependency>
+      <dependency>
+          <groupId>org.apache.kafka</groupId>
+          <artifactId>kafka_2.11</artifactId>
+          <version>0.10.0.0</version>
+          <classifier>test</classifier>
+          <scope>test</scope>
+      </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>19.0</version>
     </dependency>
+      <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>19.0</version>
+          <classifier>test</classifier>
+          <scope>test</scope>
+      </dependency>
     <dependency>
       <groupId>org.nuxeo.ecm.core</groupId>
       <artifactId>nuxeo-core-api</artifactId>

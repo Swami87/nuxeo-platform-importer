@@ -1,11 +1,12 @@
 package org.nuxeo.ecm.platform.importer.service.kafka.broker;
 
-import com.sun.istack.internal.NotNull;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.platform.importer.service.kafka.zk.ZooKeeperStartable;
 import org.nuxeo.ecm.platform.importer.settings.*;
 
@@ -21,13 +22,18 @@ import java.util.concurrent.TimeUnit;
  * © Andrei Nechaev 2016
  */
 public class EventBroker {
+    private static final Log log = LogFactory.getLog(EventBroker.class);
+
     private final ExecutorService mZKService = Executors.newSingleThreadExecutor();
     private final ExecutorService mInternalService = Executors.newCachedThreadPool();
+
+//    private static EventBroker sBroker;
 
     private ZooKeeperStartable mZKServer;
     private KafkaServerStartable mKafkaServer;
 
-    public EventBroker(@NotNull Map<String, String> properties) throws Exception {
+
+    public EventBroker(Map<String, String> properties) throws Exception {
         String zkProps = properties.get(Settings.ZOOKEEPER);
         Properties zp = ServiceHelper.loadProperties(zkProps);
         zp.setProperty("dataDir", Files.createTempDirectory("zp-").toAbsolutePath().toString());
@@ -40,6 +46,23 @@ public class EventBroker {
 
         mKafkaServer = new KafkaServerStartable(kafkaConfig);
     }
+
+//    public static synchronized EventBroker getInstance(@NotNull Map<String, String> properties) throws Exception {
+//        if (sBroker == null) {
+//            sBroker = new EventBroker(properties);
+//            return sBroker;
+//        }
+//
+//        return sBroker;
+//    }
+//
+//    public static synchronized EventBroker getInstance() throws Exception {
+//        if (sBroker == null) {
+//            throw new Exception("Illegal call before calling getInstance(Map<String, String>)");
+//        }
+//
+//        return sBroker;
+//    }
 
     public void start() throws Exception {
         if (mZKServer == null || mKafkaServer == null) {
@@ -61,7 +84,7 @@ public class EventBroker {
         mZKServer.setUtils(utils);
 
         mKafkaServer.startup();
-        System.out.println("Broker started");
+        log.info("Broker started");
     }
 
 
