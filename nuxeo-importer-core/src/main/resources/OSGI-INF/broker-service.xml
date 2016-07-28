@@ -4,6 +4,12 @@
     <documentation>
         The service runs Kafka and Zookeeper instances for further event-based use cases
 
+        <code>
+            <extension target="org.nuxeo.ecm.platform.importer.service.DefaultImporterComponent" point="brokerConfiguration">
+
+            </extension>
+        </code>
+
     </documentation>
 
     <implementation
