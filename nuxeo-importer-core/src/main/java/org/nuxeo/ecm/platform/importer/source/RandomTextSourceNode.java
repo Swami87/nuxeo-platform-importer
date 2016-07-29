@@ -160,7 +160,7 @@ public class RandomTextSourceNode implements SourceNode {
         nbNodes = 0;
         nbFolders = 1;
         nbVisitedFolders = 0;
-        size = new Long(0);
+        size = 0L;
         RandomTextSourceNode.blobSizeInKB = blobSizeInKB;
         minGlobalFolders = maxNode / defaultNbDataNodesPerFolder;
         minFoldersPerNode = 1 + (int) Math.pow(minGlobalFolders, (1.0 / maxDepth));
