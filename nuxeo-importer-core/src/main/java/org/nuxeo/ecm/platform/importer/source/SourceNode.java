@@ -24,6 +24,7 @@ package org.nuxeo.ecm.platform.importer.source;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.kafka.common.serialization.Serializer;
 import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
 
 /**

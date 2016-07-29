@@ -27,7 +27,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.platform.importer.base.ImporterRunner;
 import org.nuxeo.ecm.platform.importer.service.DefaultImporterService;
-import org.nuxeo.ecm.platform.importer.service.kafka.BrokerService;
 import org.nuxeo.runtime.api.Framework;
 
 @Path("fileImporter")
@@ -36,7 +35,6 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
     private static final Log log = LogFactory.getLog(HttpFileImporterExecutor.class);
 
     private DefaultImporterService importerService;
-    private BrokerService mBrokerService;
 
     @Override
     protected Log getJavaLogger() {
@@ -77,7 +75,6 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
         // TODO: populate consumers
 
         getImporterService().setTransactionTimeout(transactionTimeout);
-        getBrokerService().populateConsumers(null);
 
         if (leafType != null || folderishType != null) {
             log.info("Importing with the specified doc types");
@@ -101,14 +98,6 @@ public class HttpFileImporterExecutor extends AbstractJaxRSImporterExecutor {
             importerService = Framework.getService(DefaultImporterService.class);
         }
         return importerService;
-    }
-
-    private BrokerService getBrokerService() {
-        if (mBrokerService == null) {
-            mBrokerService = Framework.getService(BrokerService.class);
-        }
-
-        return mBrokerService;
     }
 }
 

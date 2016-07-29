@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<component name="org.nuxeo.ecm.platform.importer.service.test.contrib">
+
+    <extension target="BrokerComponent" point="brokerConfiguration">
+        <brokerConfig
+                partition="8"
+                replication="2"
+        />
+    </extension>
+</component>

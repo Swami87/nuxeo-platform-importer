@@ -19,6 +19,7 @@
         <module>nuxeo-importer-xml-parser</module>
         <module>nuxeo-importer-scan-xml-parser</module>
         <module>nuxeo-importer-queues</module>
+        <module>nuxeo-importer-broker</module>
     </modules>
 
     <properties>
