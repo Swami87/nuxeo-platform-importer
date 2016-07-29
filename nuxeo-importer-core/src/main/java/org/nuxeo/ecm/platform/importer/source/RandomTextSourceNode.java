@@ -31,6 +31,7 @@ import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.Blobs;
 import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
@@ -433,4 +434,22 @@ public class RandomTextSourceNode implements SourceNode {
     public String getSourcePath() {
         return null;
     }
+
+
+
+//    // org.apache.kafka.common.serialization.Serializer interface methods
+//    @Override
+//    public void configure(Map map, boolean b) {
+//        StringSerializer
+//    }
+//
+//    @Override
+//    public byte[] serialize(String s, Object o) {
+//        return new byte[0];
+//    }
+//
+//    @Override
+//    public void close() {
+//
+//    }
 }

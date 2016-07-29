@@ -2,7 +2,7 @@ syntax:glob
 .classpath
 .metadata
 .project
-.settings
+.org.nuxeo.ecm.platform.importer.kafka.settings
 bin
 target
 *~
