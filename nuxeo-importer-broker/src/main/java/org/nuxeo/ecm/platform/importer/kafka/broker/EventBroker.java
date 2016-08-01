@@ -12,6 +12,7 @@ import org.nuxeo.ecm.platform.importer.kafka.zk.ZooKeeperStartable;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
 import java.util.Properties;
@@ -29,19 +30,19 @@ public class EventBroker {
     private final ExecutorService mZKService = Executors.newSingleThreadExecutor();
     private final ExecutorService mInternalService = Executors.newCachedThreadPool();
 
-//    private static EventBroker sBroker;
-
     private ZooKeeperStartable mZKServer;
     private KafkaServerStartable mKafkaServer;
 
 
     public EventBroker(Map<String, String> properties) throws Exception {
         String zkProps = properties.get(Settings.ZOOKEEPER);
+
         Properties zp = ServiceHelper.loadProperties(zkProps);
         zp.setProperty("dataDir", Files.createTempDirectory("zp-").toAbsolutePath().toString());
         mZKServer = new ZooKeeperStartable(zp);
 
         String kafkaProps = properties.get(Settings.KAFKA);
+
         Properties kp = ServiceHelper.loadProperties(kafkaProps);
         kp.setProperty("log.dirs", Files.createTempDirectory("kafka-").toAbsolutePath().toString());
         KafkaConfig kafkaConfig = new KafkaConfig(kp);
@@ -49,22 +50,13 @@ public class EventBroker {
         mKafkaServer = new KafkaServerStartable(kafkaConfig);
     }
 
-//    public static synchronized EventBroker getInstance(@NotNull Map<String, String> properties) throws Exception {
-//        if (sBroker == null) {
-//            sBroker = new EventBroker(properties);
-//            return sBroker;
-//        }
-//
-//        return sBroker;
-//    }
-//
-//    public static synchronized EventBroker getInstance() throws Exception {
-//        if (sBroker == null) {
-//            throw new Exception("Illegal call before calling getInstance(Map<String, String>)");
-//        }
-//
-//        return sBroker;
-//    }
+    public EventBroker(Properties kfProps, Properties zkProps) throws IOException {
+        mZKServer = new ZooKeeperStartable(zkProps);
+        KafkaConfig kafkaConfig = new KafkaConfig(kfProps);
+
+        mKafkaServer = new KafkaServerStartable(kafkaConfig);
+    }
+
 
     public void start() throws Exception {
         if (mZKServer == null || mKafkaServer == null) {
@@ -94,6 +86,7 @@ public class EventBroker {
         if (mKafkaServer == null) {
             throw new Exception("Could not stop the Broker");
         }
+
         mInternalService.shutdown();
         mKafkaServer.shutdown();
         mZKServer.stop();
@@ -102,13 +95,13 @@ public class EventBroker {
         mZKService.awaitTermination(60, TimeUnit.SECONDS);
     }
 
+    
     public void createTopic(String name, int partition, int replication) {
         mInternalService.execute(() -> {
             try {
                 mZKServer.createTopic(name, partition, replication);
             } catch (Exception e) {
-                e.printStackTrace();
-                System.exit(7);
+                log.error(e);
             }
         });
     }

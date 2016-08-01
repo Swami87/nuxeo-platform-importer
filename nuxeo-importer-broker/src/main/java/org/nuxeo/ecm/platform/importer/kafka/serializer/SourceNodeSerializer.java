@@ -1,10 +1,12 @@
 package org.nuxeo.ecm.platform.importer.kafka.serializer;
 
 import org.apache.kafka.common.serialization.Serializer;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.util.Map;
 
 
@@ -21,12 +23,21 @@ public class SourceNodeSerializer implements Serializer<SourceNode> {
 
     @Override
     public byte[] serialize(String s, SourceNode sourceNode) {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.writeValueAsBytes(sourceNode);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (ObjectOutput out = new ObjectOutputStream(bos)) {
+            out.writeObject(sourceNode);
+
+            return bos.toByteArray();
         } catch (IOException e) {
             e.printStackTrace();
+        }finally {
+            try {
+                bos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+
 
         return new byte[0];
     }

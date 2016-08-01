@@ -104,7 +104,7 @@ public class QueueImporter {
         for (int i = 0; i < manager.getNBConsumers(); i++) {
             BlockingQueue<SourceNode> queue = manager.getQueue(i);
             if (! queue.isEmpty()) {
-                log.error("Queue of conusmer " + i + " not empty, draining " + queue.size()  + " nodes to errors");
+                log.error("Queue of consumer " + i + " not empty, draining " + queue.size()  + " nodes to errors");
                 unprocessedNodesConsumer += queue.size();
                 do {
                     SourceNode node = queue.poll();
