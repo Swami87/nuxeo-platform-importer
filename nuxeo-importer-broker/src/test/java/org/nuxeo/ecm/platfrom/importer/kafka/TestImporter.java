@@ -86,6 +86,8 @@ public class TestImporter {
 
     @Test
     public void testShouldProduce() throws IOException, InterruptedException {
+        mConsumer.subscribe(Collections.singletonList(TOPIC));
+
         int records = executeTransaction();
         Assert.assertTrue(records > 0);
     }
@@ -93,6 +95,8 @@ public class TestImporter {
 
     @Test
     public void testConsumerShouldReceiveAllMsg() throws InterruptedException {
+        mConsumer.subscribe(Collections.singletonList(TOPIC));
+
         int records = executeTransaction();
 
         Assert.assertEquals(mChildren.size(), records);
