@@ -3,6 +3,7 @@ package org.nuxeo.ecm.platfrom.importer.kafka;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.After;
@@ -26,10 +27,7 @@ import org.nuxeo.runtime.test.runner.FeaturesRunner;
 
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +45,9 @@ public class TestImporter {
 
     private static final Log log = LogFactory.getLog(TestImporter.class);
     private static final String TOPIC = "test";
-    private RandomTextSourceNode root = RandomTextSourceNode.init(1000, 1, true);
+    ExecutorService service = Executors.newSingleThreadExecutor();
+
+    private RandomTextSourceNode mRoot;
     private List<SourceNode> mChildren;
 
     private Producer<String, SourceNode> mProducer;
@@ -71,7 +71,8 @@ public class TestImporter {
         mProducer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
         mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
 
-        mChildren = root.getChildren();
+        mRoot = RandomTextSourceNode.init(100, 1, true);
+        mChildren = mRoot.getChildren();
     }
 
     @After
@@ -83,18 +84,41 @@ public class TestImporter {
 
     @Test
     public void testConsumerShouldReceiveAllMsg() throws InterruptedException {
-        ConsumerRecords<String, SourceNode> records = executeTransaction();
-        Assert.assertEquals(mChildren.size(), records.count());
+        int records = executeTransaction();
+
+        Assert.assertEquals(mChildren.size(), records);
     }
 
     @Test
     public void testShouldProduce() throws IOException, InterruptedException {
-        ConsumerRecords<String, SourceNode> records = executeTransaction();
-        Assert.assertTrue(records.count() > 0);
+        int records = executeTransaction();
+        Assert.assertTrue(records > 0);
     }
 
-    private ConsumerRecords<String, SourceNode> executeTransaction() throws InterruptedException {
-        ExecutorService service = Executors.newSingleThreadExecutor();
+    @Test
+    public void testShouldNotCreateDuplicates() {
+        Set<SourceNode> nodes = new HashSet<>();
+        runProducerService();
+
+        int count = 0;
+
+        while (count < mChildren.size()) {
+
+            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
+
+            for (ConsumerRecord<String, SourceNode> record : records) {
+                nodes.add(record.value());
+            }
+
+            count += records.count();
+        }
+
+        Assert.assertEquals(count, nodes.size());
+
+    }
+
+    private void runProducerService() {
+        service = Executors.newSingleThreadExecutor();
 
         mConsumer.subscribe(Collections.singletonList(TOPIC));
 
@@ -107,11 +131,24 @@ public class TestImporter {
         };
         service.execute(task);
         service.shutdown();
-        ConsumerRecords<String, SourceNode> records =  mConsumer.poll(4000);
+    }
+
+    private int executeTransaction() throws InterruptedException {
+        runProducerService();
+
+        int count = 0;
+
+        while (count < mChildren.size()) {
+
+            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
+
+            count += records.count();
+        }
+
 
         service.awaitTermination(60, TimeUnit.SECONDS);
 
-        return records;
+        return count;
     }
 
 

@@ -1,9 +1,6 @@
 package org.nuxeo.ecm.platform.importer.kafka.serializer;
 
-import kafka.serializer.Decoder;
-import kafka.utils.VerifiableProperties;
 import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 
