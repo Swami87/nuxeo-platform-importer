@@ -39,8 +39,8 @@ public class BuggyNodeProducer extends AbstractProducer {
                 if (exceptionInProducer > 0 && i >= exceptionInProducer) {
                     throw new RuntimeException("This is a buggy exception during producer processing !");
                 }
-                dispatch(new BuggySourceNode(i, rollBackFrequency > 0 ? i % rollBackFrequency == 0: false,
-                        exceptionFrequency > 0 ? i % exceptionFrequency == 0 : false));
+                dispatch(new BuggySourceNode(i, rollBackFrequency > 0 && i % rollBackFrequency == 0,
+                        exceptionFrequency > 0 && i % exceptionFrequency == 0));
             }
         } catch (InterruptedException e) {
             e.printStackTrace();

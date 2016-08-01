@@ -21,17 +21,8 @@
 
 package org.nuxeo.ecm.platform.importer.source;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.Blobs;
 import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
@@ -40,6 +31,9 @@ import org.nuxeo.ecm.core.api.blobholder.SimpleBlobHolderWithProperties;
 import org.nuxeo.ecm.platform.importer.random.DictionaryHolder;
 import org.nuxeo.ecm.platform.importer.random.HunspellDictionaryHolder;
 import org.nuxeo.ecm.platform.importer.random.RandomTextGenerator;
+
+import java.io.Serializable;
+import java.util.*;
 
 
 /**
@@ -51,7 +45,7 @@ public class RandomTextSourceNode implements SourceNode {
 
     private static final Log log = LogFactory.getLog(RandomTextSourceNode.class);
 
-    protected static RandomTextGenerator gen;
+    protected static transient RandomTextGenerator gen;
 
     protected static int maxNode = 10000;
 
@@ -124,6 +118,37 @@ public class RandomTextSourceNode implements SourceNode {
 
     static protected String[] DC_COVERAGE = { "europe/France", "europe/Germany", "europe/Italy", "europe/Spain",
             "oceania/Tonga", "africa/Mali", "asia/Japan", "north-america/United_States_of_America" };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        RandomTextSourceNode that = (RandomTextSourceNode) o;
+
+        if (folderish != that.folderish) return false;
+        if (level != that.level) return false;
+        if (idx != that.idx) return false;
+        if (onlyText != that.onlyText) return false;
+        if (withProperties != that.withProperties) return false;
+        if (hazard != null ? !hazard.equals(that.hazard) : that.hazard != null) return false;
+        if (name != null ? !name.equals(that.name) : that.name != null) return false;
+        return cachedChildren != null ? cachedChildren.equals(that.cachedChildren) : that.cachedChildren == null;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = hazard != null ? hazard.hashCode() : 0;
+        result = 31 * result + (name != null ? name.hashCode() : 0);
+        result = 31 * result + (folderish ? 1 : 0);
+        result = 31 * result + level;
+        result = 31 * result + idx;
+        result = 31 * result + (cachedChildren != null ? cachedChildren.hashCode() : 0);
+        result = 31 * result + (onlyText ? 1 : 0);
+        result = 31 * result + (withProperties ? 1 : 0);
+        return result;
+    }
 
     public RandomTextSourceNode(boolean folderish, int level, int idx, boolean onlyText, boolean withProperties) {
         this.folderish = folderish;
@@ -452,4 +477,7 @@ public class RandomTextSourceNode implements SourceNode {
 //    public void close() {
 //
 //    }
+
+
+
 }
