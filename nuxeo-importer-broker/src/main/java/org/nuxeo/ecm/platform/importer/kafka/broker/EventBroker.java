@@ -89,6 +89,7 @@ public class EventBroker {
 
         mInternalService.shutdown();
         mKafkaServer.shutdown();
+//        mKafkaServer.awaitShutdown();
         mZKServer.stop();
 
         mInternalService.awaitTermination(8, TimeUnit.SECONDS);

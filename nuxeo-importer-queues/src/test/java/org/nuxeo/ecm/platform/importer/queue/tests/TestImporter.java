@@ -16,8 +16,7 @@
  */
 package org.nuxeo.ecm.platform.importer.queue.tests;
 
-import static org.junit.Assert.assertTrue;
-
+import com.google.inject.Inject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
@@ -40,7 +39,7 @@ import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
 
-import com.google.inject.Inject;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(FeaturesRunner.class)
 @Features(CoreFeature.class)
@@ -57,7 +56,6 @@ public class TestImporter {
 
         ImporterLogger logger = new BufferredLogger(log);
         QueueImporter importer = new QueueImporter(logger);
-
         ImporterFilter filter = new EventServiceConfiguratorFilter(true, false, true, false, true);
         importer.addFilter(filter);
 

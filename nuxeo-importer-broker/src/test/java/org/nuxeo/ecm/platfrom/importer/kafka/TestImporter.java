@@ -12,12 +12,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.api.PathRef;
+import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.core.test.CoreFeature;
 import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
+import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
@@ -46,6 +47,7 @@ public class TestImporter {
 
     private static final Log log = LogFactory.getLog(TestImporter.class);
     private static final String TOPIC = "test";
+    private static final int NODES = 100;
 
     private ExecutorService mService = Executors.newSingleThreadExecutor();
 
@@ -72,8 +74,11 @@ public class TestImporter {
         mProducer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
         mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
 
-        RandomTextSourceNode mRoot = RandomTextSourceNode.init(100, 1, true);
+        RandomTextSourceNode mRoot = RandomTextSourceNode.init(NODES, 1, true);
         mChildren = mRoot.getChildren();
+
+        mConsumer.subscribe(Collections.singletonList(TOPIC));
+        runProducerService();
     }
 
     @After
@@ -81,13 +86,15 @@ public class TestImporter {
         mProducer.close();
         mConsumer.close();
         mBroker.stop();
+
+        if (mService != null) {
+            mService.awaitTermination(60, TimeUnit.SECONDS);
+        }
     }
 
 
     @Test
     public void testShouldProduce() throws IOException, InterruptedException {
-        mConsumer.subscribe(Collections.singletonList(TOPIC));
-
         int records = executeTransaction();
         Assert.assertTrue(records > 0);
     }
@@ -95,8 +102,6 @@ public class TestImporter {
 
     @Test
     public void testConsumerShouldReceiveAllMsg() throws InterruptedException {
-        mConsumer.subscribe(Collections.singletonList(TOPIC));
-
         int records = executeTransaction();
 
         Assert.assertEquals(mChildren.size(), records);
@@ -106,9 +111,6 @@ public class TestImporter {
     @Test
     public void testShouldNotCreateDuplicates() {
         Set<SourceNode> nodes = new HashSet<>();
-        mConsumer.subscribe(Collections.singletonList(TOPIC));
-
-        runProducerService();
 
         int count = 0;
 
@@ -129,28 +131,28 @@ public class TestImporter {
 
 
     @Test
-    public void testShouldImport() throws IOException {
+    public void testShouldImport() throws IOException, InterruptedException {
         DocumentModel model = mCoreSession.getRootDocument();
-        DocumentModel root = mCoreSession.getDocument(new PathRef("/"));
 
+        int count = 0;
 
-        for (SourceNode ch : mChildren) {
-            printNodes(ch);
+        while (count < mChildren.size()) {
+
+            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
+
+            for (ConsumerRecord<String, SourceNode> record : records) {
+                Importer importer = new Importer(model, record.value());
+                importer.runImport();
+            }
+
+            count += records.count();
         }
-//        runProducerService();
-//
-//        int count = 0;
-//
-//        while (count < mChildren.size()) {
-//
-//            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
-//
-//            for (ConsumerRecord<String, SourceNode> record : records) {
-//                printNodes(record.value());
-//            }
-//
-//            count += records.count();
-//        }
+
+        model = mCoreSession.getRootDocument();
+        DocumentModelList list = mCoreSession.getChildren(model.getRef());
+
+
+        Assert.assertEquals(mChildren.size(), list.size());`
     }
 
     private void printNodes(SourceNode node) throws IOException {
