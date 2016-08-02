@@ -16,20 +16,20 @@
  */
 package org.nuxeo.ecm.platform.importer.queue.manager;
 
+import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
+import org.nuxeo.ecm.platform.importer.source.SourceNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-
-import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
-import org.nuxeo.ecm.platform.importer.source.SourceNode;
 
 /**
  * @since 8.3
  */
 public abstract class AbstractQueuesManager implements QueuesManager {
 
-    final List<BlockingQueue<SourceNode>> queues;
+    private final List<BlockingQueue<SourceNode>> queues;
 
     protected final int maxQueueSize;
 
@@ -37,7 +37,7 @@ public abstract class AbstractQueuesManager implements QueuesManager {
 
     public AbstractQueuesManager(ImporterLogger logger, int queuesNb, int maxQueueSize) {
         this.maxQueueSize = maxQueueSize;
-        queues = new ArrayList<BlockingQueue<SourceNode>>(queuesNb);
+        queues = new ArrayList<>(queuesNb);
         for (int i = 0; i < queuesNb; i++) {
             queues.add(new ArrayBlockingQueue<>(maxQueueSize));
         }
