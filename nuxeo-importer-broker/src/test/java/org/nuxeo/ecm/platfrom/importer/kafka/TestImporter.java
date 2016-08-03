@@ -19,6 +19,7 @@ import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
+import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
@@ -47,14 +48,15 @@ public class TestImporter {
 
     private static final Log log = LogFactory.getLog(TestImporter.class);
     private static final String TOPIC = "test";
-    private static final int NODES = 100;
+    private static final int NODES = 1000;
 
     private ExecutorService mService = Executors.newSingleThreadExecutor();
 
+    RandomTextSourceNode mRoot;
     private List<SourceNode> mChildren;
 
-    private Producer<String, SourceNode> mProducer;
-    private Consumer<String, SourceNode> mConsumer;
+    private Producer<String, Message> mProducer;
+    private Consumer<String, Message> mConsumer;
 
     @Inject
     CoreSession mCoreSession;
@@ -74,7 +76,7 @@ public class TestImporter {
         mProducer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
         mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
 
-        RandomTextSourceNode mRoot = RandomTextSourceNode.init(NODES, 1, true);
+        mRoot = RandomTextSourceNode.init(NODES, 1, true);
         mChildren = mRoot.getChildren();
 
         mConsumer.subscribe(Collections.singletonList(TOPIC));
@@ -101,24 +103,24 @@ public class TestImporter {
 
 
     @Test
-    public void testConsumerShouldReceiveAllMsg() throws InterruptedException {
+    public void testConsumerShouldReceiveAllMsg() throws InterruptedException, IOException {
         int records = executeTransaction();
 
-        Assert.assertEquals(mChildren.size(), records);
+        Assert.assertEquals(traverseList(mChildren).size(), records);
     }
 
 
     @Test
     public void testShouldNotCreateDuplicates() {
-        Set<SourceNode> nodes = new HashSet<>();
+        Set<Message> nodes = new HashSet<>();
 
         int count = 0;
 
         while (count < mChildren.size()) {
 
-            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
+            ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
-            for (ConsumerRecord<String, SourceNode> record : records) {
+            for (ConsumerRecord<String, Message> record : records) {
                 System.out.println(record.value().getName());
                 nodes.add(record.value());
             }
@@ -138,9 +140,10 @@ public class TestImporter {
 
         while (count < mChildren.size()) {
 
-            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
+            ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
-            for (ConsumerRecord<String, SourceNode> record : records) {
+            for (ConsumerRecord<String, Message> record : records) {
+                System.out.println(record.value());
                 Importer importer = new Importer(model, record.value());
                 importer.runImport();
             }
@@ -150,10 +153,9 @@ public class TestImporter {
 
         model = mCoreSession.getRootDocument();
         DocumentModelList list = mCoreSession.getChildren(model.getRef());
-
-
-        Assert.assertEquals(mChildren.size(), list.size());`
+        Assert.assertTrue(list.size() > mChildren.size());
     }
+
 
     private void printNodes(SourceNode node) throws IOException {
         if (node == null) return;
@@ -171,14 +173,35 @@ public class TestImporter {
         mService = Executors.newSingleThreadExecutor();
 
         Runnable task = () -> {
-            for (SourceNode child : mChildren) {
-                ProducerRecord<String, SourceNode> record = new ProducerRecord<>(TOPIC, 0, 100L, "Node", child);
-                mProducer.send(record);
-                mProducer.flush();
+
+            try {
+                List<SourceNode> list = traverseList(mChildren);
+                System.out.println("List size = " + list.size());
+                for (SourceNode child : list) {
+                    ProducerRecord<String, Message> record = new ProducerRecord<>(TOPIC, 0, 100L, "Node", new Message(child));
+
+                    mProducer.send(record);
+                    mProducer.flush();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         };
         mService.execute(task);
         mService.shutdown();
+    }
+
+
+    private List<SourceNode> traverseList(List<SourceNode> nodes) throws IOException {
+        List<SourceNode> list = new ArrayList<>(nodes);
+        for (SourceNode node : nodes) {
+            if (node.getChildren() != null) {
+                List<SourceNode> tmpList = new ArrayList<>(node.getChildren());
+                list.addAll(traverseList(tmpList));
+            }
+        }
+
+        return list;
     }
 
     private int executeTransaction() throws InterruptedException {
@@ -188,7 +211,7 @@ public class TestImporter {
 
         while (count < mChildren.size()) {
 
-            ConsumerRecords<String, SourceNode> records =  mConsumer.poll(100);
+            ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
             count += records.count();
         }

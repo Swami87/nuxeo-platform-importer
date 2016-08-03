@@ -1,6 +1,8 @@
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -76,7 +78,7 @@ public class TestBrokerBasics {
         Runnable pTask = () -> {
             try {
                 Properties pp = ServiceHelper.loadProperties("producer.props");
-                pp.put("value.serializer", StringSerializer.class.getName());
+                pp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
                 Producer<String, String> producer = new Producer<>(pp);
                 for (int i = 0; i < COUNT / PARTITION; i++) {
@@ -95,7 +97,7 @@ public class TestBrokerBasics {
         Runnable cTask = () -> {
             try {
                 Properties cp = ServiceHelper.loadProperties("consumer.props");
-                cp.put("value.deserializer", StringDeserializer.class.getName());
+                cp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
                 Consumer<String, String> consumer = new Consumer<>(cp);
                 consumer.subscribe(Collections.singletonList(TOPIC));
