@@ -1,17 +1,15 @@
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
-import org.nuxeo.ecm.core.api.Blob;
+import org.nuxeo.ecm.core.api.Blobs;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.UnrestrictedSessionRunner;
-import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
-import org.nuxeo.ecm.core.api.model.PropertyNotFoundException;
-import org.nuxeo.ecm.platform.filemanager.api.FileManager;
-import org.nuxeo.ecm.platform.importer.source.SourceNode;
-import org.nuxeo.runtime.api.Framework;
+import org.nuxeo.ecm.platform.importer.kafka.message.Data;
+import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,15 +18,12 @@ import java.util.Map;
  */
 public class Importer {
 
-    private final FileManager fileManager;
-
     private DocumentModel mModel;
-    private SourceNode mNode;
+    private Message mObject;
 
-    public Importer(DocumentModel mModel, SourceNode mNode) {
-        this.fileManager = Framework.getService(FileManager.class);
+    public Importer(DocumentModel mModel, Message mObject) {
         this.mModel = mModel;
-        this.mNode = mNode;
+        this.mObject = mObject;
     }
 
     public void runImport() {
@@ -36,7 +31,7 @@ public class Importer {
             @Override
             public void run() {
                 try {
-                    processBlob(session, mNode);
+                    processMessage(session, mObject);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -46,19 +41,21 @@ public class Importer {
         runner.runUnrestricted();
     }
 
-    private void processBlob(CoreSession session, SourceNode node) throws IOException {
+
+    private void processMessage(CoreSession session, Message message) throws IOException {
+        if (message == null || session == null) return;
+
         String fileName = null;
         String name = null;
-        BlobHolder blobHolder = node.getBlobHolder();
-        if (blobHolder != null) {
-            Blob blob = blobHolder.getBlob();
-            if (blob != null) {
-                fileName = blob.getFilename();
-            }
-            Map<String, Serializable> props = blobHolder.getProperties();
+
+        List<Data> data = message.getData();
+        if (data != null && data.size() > 0) {
+            fileName = data.get(0).getFileName();
+            Map<String, Serializable> props = message.getProperties();
             if (props != null) {
-                name = (String) props.get("name");
+                name = (String) message.getProperties().get("name");
             }
+
             if (name == null) {
                 name = fileName;
             } else if (fileName == null) {
@@ -69,20 +66,14 @@ public class Importer {
 
             doc.setProperty("dublincore", "title", name);
             doc.setProperty("file", "filename", fileName);
-            doc.setProperty("file", "content", blobHolder.getBlob());
+            Data d = message.getData().get(0);
+            doc.setProperty("file", "content", Blobs.createBlob(d.getBytes(), d.getMimeType(), d.getEncoding()));
 
             if (props != null) {
-
                 for (Map.Entry<String, Serializable> entry : props.entrySet()) {
-                    try {
-                        doc.setPropertyValue(entry.getKey(), entry.getValue());
-                    } catch (PropertyNotFoundException e) {
-                        String message = String.format("Property '%s' not found on document type: %s. Skipping it.",
-                                entry.getKey(), doc.getType());
-                        System.out.println(message);
-                        e.printStackTrace();
-                    }
+                    doc.setPropertyValue(entry.getKey(), entry.getValue());
                 }
+
                 doc = session.saveDocument(doc);
             }
 

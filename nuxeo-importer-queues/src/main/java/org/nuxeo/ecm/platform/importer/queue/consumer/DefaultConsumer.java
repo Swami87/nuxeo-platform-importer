@@ -16,11 +16,6 @@
  */
 package org.nuxeo.ecm.platform.importer.queue.consumer;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
@@ -30,6 +25,11 @@ import org.nuxeo.ecm.platform.filemanager.api.FileManager;
 import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 import org.nuxeo.runtime.api.Framework;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * @since 8.3
@@ -77,9 +77,7 @@ public class DefaultConsumer extends AbstractConsumer {
             doc.setProperty("file", "filename", fileName);
             doc.setProperty("file", "content", bh.getBlob());
 
-            if (bh != null) {
-                doc = setDocumentProperties(session, bh.getProperties(), doc);
-            }
+            doc = setDocumentProperties(session, bh.getProperties(), doc);
 
             doc = session.createDocument(doc);
             importStat.increaseStat(doc.getType(), 1);
