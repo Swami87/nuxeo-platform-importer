@@ -18,7 +18,7 @@ import java.util.Random;
  */
 public class TestMessageClass {
 
-    private static SourceNode node = RandomTextSourceNode.init(1000, 20000, true);
+    private static SourceNode node = RandomTextSourceNode.init(1000, 512, true);
     private Message mMessage;
 
     @Before

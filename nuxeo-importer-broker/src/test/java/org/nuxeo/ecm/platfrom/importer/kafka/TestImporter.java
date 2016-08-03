@@ -76,7 +76,7 @@ public class TestImporter {
         mProducer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
         mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
 
-        mRoot = RandomTextSourceNode.init(NODES, 1, true);
+        mRoot = RandomTextSourceNode.init(NODES, 512, true);
         mChildren = mRoot.getChildren();
 
         mConsumer.subscribe(Collections.singletonList(TOPIC));
@@ -85,13 +85,13 @@ public class TestImporter {
 
     @After
     public void shutdown() throws Exception {
-        mProducer.close();
-        mConsumer.close();
-        mBroker.stop();
-
         if (mService != null) {
             mService.awaitTermination(60, TimeUnit.SECONDS);
         }
+
+        mProducer.close();
+        mConsumer.close();
+        mBroker.stop();
     }
 
 
@@ -138,7 +138,7 @@ public class TestImporter {
 
         int count = 0;
 
-        while (count < mChildren.size()) {
+        while (count < traverseList(mChildren).size()) {
 
             ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
@@ -153,7 +153,8 @@ public class TestImporter {
 
         model = mCoreSession.getRootDocument();
         DocumentModelList list = mCoreSession.getChildren(model.getRef());
-        Assert.assertTrue(list.size() > mChildren.size());
+//        Assert.assertTrue(list.size() > mChildren.size());
+        Assert.assertEquals(list.size(), mChildren.size());
     }
 
 

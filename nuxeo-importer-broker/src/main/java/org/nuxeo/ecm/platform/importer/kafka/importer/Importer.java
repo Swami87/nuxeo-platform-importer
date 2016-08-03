@@ -19,11 +19,11 @@ import java.util.Map;
 public class Importer {
 
     private DocumentModel mModel;
-    private Message mObject;
+    private Message mMessage;
 
-    public Importer(DocumentModel mModel, Message mObject) {
-        this.mModel = mModel;
-        this.mObject = mObject;
+    public Importer(DocumentModel model, Message message) {
+        this.mModel = model;
+        this.mMessage = message;
     }
 
     public void runImport() {
@@ -31,7 +31,7 @@ public class Importer {
             @Override
             public void run() {
                 try {
-                    processMessage(session, mObject);
+                    processMessage(session, mMessage);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
