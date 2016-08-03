@@ -53,7 +53,7 @@ public class TestImporter {
     private ExecutorService mService = Executors.newSingleThreadExecutor();
 
     RandomTextSourceNode mRoot;
-    private List<SourceNode> mChildren;
+    private List<SourceNode> mTraversedList;
 
     private Producer<String, Message> mProducer;
     private Consumer<String, Message> mConsumer;
@@ -77,8 +77,7 @@ public class TestImporter {
         mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
 
         mRoot = RandomTextSourceNode.init(NODES, 512, true);
-        mChildren = mRoot.getChildren();
-
+        mTraversedList = traverseList(mRoot.getChildren());
         mConsumer.subscribe(Collections.singletonList(TOPIC));
         runProducerService();
     }
@@ -106,7 +105,7 @@ public class TestImporter {
     public void testConsumerShouldReceiveAllMsg() throws InterruptedException, IOException {
         int records = executeTransaction();
 
-        Assert.assertEquals(traverseList(mChildren).size(), records);
+        Assert.assertEquals(mTraversedList.size(), records);
     }
 
 
@@ -116,7 +115,7 @@ public class TestImporter {
 
         int count = 0;
 
-        while (count < mChildren.size()) {
+        while (count < mTraversedList.size()) {
 
             ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
@@ -138,7 +137,7 @@ public class TestImporter {
 
         int count = 0;
 
-        while (count < traverseList(mChildren).size()) {
+        while (count < mTraversedList.size()) {
 
             ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
@@ -153,8 +152,7 @@ public class TestImporter {
 
         model = mCoreSession.getRootDocument();
         DocumentModelList list = mCoreSession.getChildren(model.getRef());
-//        Assert.assertTrue(list.size() > mChildren.size());
-        Assert.assertEquals(list.size(), mChildren.size());
+        Assert.assertTrue(list.size() >= mRoot.getChildren().size());
     }
 
 
@@ -176,9 +174,8 @@ public class TestImporter {
         Runnable task = () -> {
 
             try {
-                List<SourceNode> list = traverseList(mChildren);
-                System.out.println("List size = " + list.size());
-                for (SourceNode child : list) {
+                System.out.println("List size = " + mTraversedList.size());
+                for (SourceNode child : mTraversedList) {
                     ProducerRecord<String, Message> record = new ProducerRecord<>(TOPIC, 0, 100L, "Node", new Message(child));
 
                     mProducer.send(record);
@@ -194,10 +191,10 @@ public class TestImporter {
 
 
     private List<SourceNode> traverseList(List<SourceNode> nodes) throws IOException {
-        List<SourceNode> list = new ArrayList<>(nodes);
+        List<SourceNode> list = new LinkedList<>(nodes);
         for (SourceNode node : nodes) {
             if (node.getChildren() != null) {
-                List<SourceNode> tmpList = new ArrayList<>(node.getChildren());
+                List<SourceNode> tmpList = new LinkedList<>(node.getChildren());
                 list.addAll(traverseList(tmpList));
             }
         }
@@ -205,18 +202,17 @@ public class TestImporter {
         return list;
     }
 
-    private int executeTransaction() throws InterruptedException {
+    private int executeTransaction() throws InterruptedException, IOException {
         runProducerService();
 
         int count = 0;
 
-        while (count < mChildren.size()) {
+        while (count < mTraversedList.size()) {
 
             ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
             count += records.count();
         }
-
 
         mService.awaitTermination(60, TimeUnit.SECONDS);
 

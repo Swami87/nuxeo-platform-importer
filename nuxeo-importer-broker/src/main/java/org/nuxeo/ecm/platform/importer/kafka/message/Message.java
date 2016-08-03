@@ -111,8 +111,7 @@ public class Message {
 
         if (isFolderish != message.isFolderish) return false;
         if (!mName.equals(message.mName)) return false;
-        return mPath.equals(message.mPath);
-
+        return mPath != null && mPath.equals(message.mPath);
     }
 
     @Override
