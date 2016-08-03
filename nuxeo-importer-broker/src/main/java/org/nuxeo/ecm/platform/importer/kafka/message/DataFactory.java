@@ -6,6 +6,7 @@ import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -18,7 +19,7 @@ public class DataFactory {
         if (holder.getBlob() != null) {
             return new ArrayList<>(Collections.singleton(new Data(holder.getBlob())));
         } else if (holder.getBlobs() != null) {
-            ArrayList<Data> list = new ArrayList<>(holder.getBlobs().size());
+            List<Data> list = new LinkedList<>();
             for (Blob b : holder.getBlobs()) {
                 list.add(new Data(b));
             }
