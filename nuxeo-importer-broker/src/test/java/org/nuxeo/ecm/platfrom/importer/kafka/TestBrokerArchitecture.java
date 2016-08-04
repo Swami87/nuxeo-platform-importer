@@ -59,7 +59,7 @@ public class TestBrokerArchitecture {
     private EventBroker mBroker;
 
     @BeforeClass
-    public void setUpClass() {
+    public static void setUpClass() {
         RandomTextSourceNode.CACHE_CHILDREN = true;
     }
 
@@ -160,28 +160,19 @@ public class TestBrokerArchitecture {
 
 
     private Runnable createConsumer(String topic, Function<ConsumerRecords<String, Message>, Void> func) {
-        ExecutorService internal = Executors.newSingleThreadExecutor();
-
         return () -> {
             try (Consumer<String, Message> c = new Consumer<>(ServiceHelper.loadProperties("consumer.props"))) {
                 c.subscribe(Collections.singletonList(topic));
-                boolean flag = true;
-                boolean finalFlag = flag;
 
-                Runnable task = () -> {
-                    while (finalFlag) {
-                        ConsumerRecords<String, Message> records = c.poll(100);
-                        func.apply(records);
-                    }
-                };
-                internal.execute(task);
-                internal.shutdown();
-                Thread.sleep(10_000);
-                flag = false;
+                ConsumerRecords<String, Message> records = c.poll(1000);
+                func.apply(records);
 
-                internal.awaitTermination(60, TimeUnit.SECONDS);
+                while (records.iterator().hasNext()) {
+                    func.apply(records);
+                    records = c.poll(500);
+                }
 
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         };
