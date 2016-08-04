@@ -7,6 +7,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.nuxeo.ecm.core.test.CoreFeature;
@@ -26,6 +27,7 @@ import org.nuxeo.runtime.test.runner.FeaturesRunner;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,14 +58,21 @@ public class TestBrokerArchitecture {
 
     private EventBroker mBroker;
 
+    @BeforeClass
+    public void setUpClass() {
+        RandomTextSourceNode.CACHE_CHILDREN = true;
+    }
+
     @Before
     public void setUp() throws Exception {
-        System.out.println(
-                String.format("msg: %d\nbin: %d\nerr: %d",
+
+        System.out.println( String.format(
+                "msg: %d\nbin: %d\nerr: %d",
                 mMsgNode.getChildren().size(),
                 mBinNode.getChildren().size(),
-                mErrNode.getChildren().size())
-        );
+                mErrNode.getChildren().size()
+        ) );
+
 
         Map<String, String> props = new HashMap<>();
         props.put(Settings.KAFKA, "kafka.props");
@@ -108,9 +117,11 @@ public class TestBrokerArchitecture {
 
 
     private Runnable createProducer(SourceNode root, String topic, String key) throws IOException {
+        List<SourceNode> list = root.getChildren();
+        System.out.println("List: " + list.size());
         return () -> {
             try (Producer<String, Message> p = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
-                for (SourceNode node : root.getChildren()) {
+                for (SourceNode node : list) {
                     ProducerRecord<String, Message> record = new ProducerRecord<>(
                             topic,
                             key,
