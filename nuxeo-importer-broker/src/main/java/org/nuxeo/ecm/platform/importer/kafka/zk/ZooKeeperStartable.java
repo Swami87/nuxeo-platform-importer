@@ -2,12 +2,15 @@ package org.nuxeo.ecm.platform.importer.kafka.zk;
 
 import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
+import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
+import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.zookeeper.server.ServerConfig;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig;
+import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -28,7 +31,6 @@ public class ZooKeeperStartable {
     private ExecutorService mServiceExecutor = Executors.newSingleThreadExecutor();
 
     private ZooKeeperServerMain mZooKeeperServer;
-    private ZkUtils mUtils;
 
     public ZooKeeperStartable(Properties properties) throws IOException {
         QuorumPeerConfig quorumConfiguration = new QuorumPeerConfig();
@@ -48,22 +50,23 @@ public class ZooKeeperStartable {
                 + mConfiguration.getClientPortAddress().getPort();
     }
 
-    public ZkUtils getUtils() {
-        return mUtils;
-    }
-
-    public void setUtils(ZkUtils mUtils) {
-        this.mUtils = mUtils;
-    }
-
     public void createTopic(String name, int partition, int replication) throws Exception {
-        if (mUtils == null) {
-            throw new Exception("ZkUtils is not assigned to " + ZooKeeperStartable.class.getName());
+        if (mConfiguration == null) {
+            throw new Exception("Couldn't configure " + ZooKeeperStartable.class.getName());
         }
 
-        if (AdminUtils.topicExists(mUtils, name)) return;
+        ZkClient client = new ZkClient(
+                getHostAddress(),
+                Settings.CONNECTION_TIMEOUT,
+                Settings.SESSION_TIMEOUT,
+                ZKStringSerializer$.MODULE$
+        );
 
-        AdminUtils.createTopic(mUtils, name, partition, replication, new Properties(), RackAwareMode.Disabled$.MODULE$);
+        ZkUtils utils = ZkUtils.apply(client, false);
+
+        if (AdminUtils.topicExists(utils, name)) return;
+
+        AdminUtils.createTopic(utils, name, partition, replication, new Properties(), RackAwareMode.Disabled$.MODULE$);
     }
 
     public Runnable start() throws Exception {

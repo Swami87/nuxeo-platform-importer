@@ -71,13 +71,13 @@ public class TestImporter {
 
         mBroker = new EventBroker(props);
         mBroker.start();
-        mBroker.createTopic(TOPIC, 1, 1);
+        mBroker.createTopic(TOPIC, 4, 1);
 
         mProducer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
         mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
 
         mRoot = RandomTextSourceNode.init(NODES, 512, true);
-        mTraversedList = traverseList(mRoot.getChildren());
+        mTraversedList = Helper.traverseList(mRoot.getChildren());
         mConsumer.subscribe(Collections.singletonList(TOPIC));
         runProducerService();
     }
@@ -85,7 +85,7 @@ public class TestImporter {
     @After
     public void shutdown() throws Exception {
         if (mService != null) {
-            mService.awaitTermination(60, TimeUnit.SECONDS);
+            mService.awaitTermination(5, TimeUnit.MINUTES);
         }
 
         mProducer.close();
@@ -102,14 +102,6 @@ public class TestImporter {
 
 
     @Test
-    public void testConsumerShouldReceiveAllMsg() throws InterruptedException, IOException {
-        int records = executeTransaction();
-
-        Assert.assertEquals(mTraversedList.size(), records);
-    }
-
-
-    @Test
     public void testShouldNotCreateDuplicates() {
         Set<Message> nodes = new HashSet<>();
 
@@ -120,7 +112,6 @@ public class TestImporter {
             ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
             for (ConsumerRecord<String, Message> record : records) {
-                System.out.println(record.value().getName());
                 nodes.add(record.value());
             }
 
@@ -142,7 +133,7 @@ public class TestImporter {
             ConsumerRecords<String, Message> records =  mConsumer.poll(100);
 
             for (ConsumerRecord<String, Message> record : records) {
-                System.out.println(record.value());
+//                System.out.println(record.value());
                 Importer importer = new Importer(model, record.value());
                 importer.runImport();
             }
@@ -172,7 +163,6 @@ public class TestImporter {
         mService = Executors.newSingleThreadExecutor();
 
         Runnable task = () -> {
-
             try {
                 System.out.println("List size = " + mTraversedList.size());
                 for (SourceNode child : mTraversedList) {
@@ -189,18 +179,6 @@ public class TestImporter {
         mService.shutdown();
     }
 
-
-    private List<SourceNode> traverseList(List<SourceNode> nodes) throws IOException {
-        List<SourceNode> list = new LinkedList<>(nodes);
-        for (SourceNode node : nodes) {
-            if (node.getChildren() != null) {
-                List<SourceNode> tmpList = new LinkedList<>(node.getChildren());
-                list.addAll(traverseList(tmpList));
-            }
-        }
-
-        return list;
-    }
 
     private int executeTransaction() throws InterruptedException, IOException {
         runProducerService();
