@@ -3,14 +3,11 @@ package org.nuxeo.ecm.platform.importer.kafka.broker;
 
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
-import kafka.utils.ZKStringSerializer$;
-import kafka.utils.ZkUtils;
-import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.nuxeo.ecm.platform.importer.kafka.zk.ZooKeeperStartable;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
+import org.nuxeo.ecm.platform.importer.kafka.zk.ZooKeeperStartable;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,9 +49,7 @@ public class EventBroker {
 
     public EventBroker(Properties kfProps, Properties zkProps) throws IOException {
         mZKServer = new ZooKeeperStartable(zkProps);
-        KafkaConfig kafkaConfig = new KafkaConfig(kfProps);
-
-        mKafkaServer = new KafkaServerStartable(kafkaConfig);
+        mKafkaServer = new KafkaServerStartable(new KafkaConfig(kfProps));
     }
 
 
@@ -66,17 +61,6 @@ public class EventBroker {
         mZKService.execute(mZKServer.start());
         mZKService.shutdown();
 
-        String hostAddress = mZKServer.getHostAddress();
-
-        ZkClient client = new ZkClient(
-                hostAddress,
-                Settings.CONNECTION_TIMEOUT,
-                Settings.SESSION_TIMEOUT,
-                ZKStringSerializer$.MODULE$);
-
-        ZkUtils utils = ZkUtils.apply(client, false);
-        mZKServer.setUtils(utils);
-
         mKafkaServer.startup();
         log.info("Broker started");
     }
@@ -87,13 +71,14 @@ public class EventBroker {
             throw new Exception("Could not stop the Broker");
         }
 
-        mInternalService.shutdown();
         mKafkaServer.shutdown();
-//        mKafkaServer.awaitShutdown();
-        mZKServer.stop();
+        mKafkaServer.awaitShutdown();
 
-        mInternalService.awaitTermination(8, TimeUnit.SECONDS);
-        mZKService.awaitTermination(60, TimeUnit.SECONDS);
+        mInternalService.shutdown();
+        mInternalService.awaitTermination(5, TimeUnit.MINUTES);
+
+        mZKServer.stop();
+        mZKService.awaitTermination(5, TimeUnit.MINUTES);
     }
 
     
