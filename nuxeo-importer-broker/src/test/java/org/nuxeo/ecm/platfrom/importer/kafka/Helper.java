@@ -17,8 +17,7 @@ public class Helper {
         List<SourceNode> list = new LinkedList<>(nodes);
         for (SourceNode node : nodes) {
             if (node.getChildren() != null) {
-                List<SourceNode> tmpList = new LinkedList<>(node.getChildren());
-                list.addAll(traverseList(tmpList));
+                list.addAll(traverseList(node.getChildren()));
             }
         }
 
@@ -26,8 +25,7 @@ public class Helper {
     }
 
     protected static List<SourceNode> traverse(SourceNode root) throws IOException {
-        List<SourceNode> list = new LinkedList<>(Collections.singleton(root));
-
+        List<SourceNode> list = new LinkedList<>(Collections.singletonList(root));
         return traverseList(list);
     }
 }
