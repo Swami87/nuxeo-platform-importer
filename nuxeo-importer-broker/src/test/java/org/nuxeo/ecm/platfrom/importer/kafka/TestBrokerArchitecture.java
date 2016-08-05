@@ -1,3 +1,23 @@
+/*
+ * (C) Copyright 2006-2016 Nuxeo SA (http://nuxeo.com/) and others.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ *
+ * Contributors:
+ *     Andrei Nechaev
+ */
+
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
 import org.apache.commons.logging.Log;
@@ -32,23 +52,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 
-/**
- * (C) Copyright 2006-2016 Nuxeo SA (http://nuxeo.com/) and contributors.
- *
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the GNU Lesser General Public License
- * (LGPL) version 2.1 which accompanies this distribution, and is available at
- * http://www.gnu.org/licenses/lgpl.html
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * Contributors:
- *     Andrei Nechaev
- */
-
 @RunWith(FeaturesRunner.class)
 @Features(CoreFeature.class)
 @RepositoryConfig(cleanup = Granularity.METHOD)
@@ -56,14 +59,12 @@ public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static final String TOPIC_MSG = "messenger";
-    private static final String TOPIC_BIN = "binary";
     private static final String TOPIC_ERR = "error";
 
-    private ExecutorService mProducerService = Executors.newFixedThreadPool(3);
-    private ExecutorService mConsumerService = Executors.newFixedThreadPool(3);
+    private ExecutorService mProducerService = Executors.newFixedThreadPool(2);
+    private ExecutorService mConsumerService = Executors.newFixedThreadPool(2);
 
     private SourceNode mMsgNode = RandomTextSourceNode.init(1024, 16, true);
-    private SourceNode mBinNode = RandomTextSourceNode.init(1024, 128, false);
     private SourceNode mErrNode = RandomTextSourceNode.init(1024, 16, true);
 
     private EventBroker mBroker;
@@ -77,9 +78,8 @@ public class TestBrokerArchitecture {
     public void setUp() throws Exception {
 
         System.out.println( String.format(
-                "msg: %d\nbin: %d\nerr: %d",
+                "msg: %d\nerr: %d",
                 mMsgNode.getChildren().size(),
-                mBinNode.getChildren().size(),
                 mErrNode.getChildren().size()
         ) );
 
@@ -92,7 +92,6 @@ public class TestBrokerArchitecture {
         mBroker.start();
 
         mBroker.createTopic(TOPIC_MSG, 4, 1);
-        mBroker.createTopic(TOPIC_BIN, 4, 1);
         mBroker.createTopic(TOPIC_ERR, 4, 1);
     }
 
@@ -117,7 +116,6 @@ public class TestBrokerArchitecture {
     private void populateProducers() throws IOException {
         Runnable[] tasks = {
             createProducer(mMsgNode, TOPIC_MSG, "Msg"),
-            createProducer(mBinNode, TOPIC_BIN, "Bin"),
             createProducer(mErrNode, TOPIC_ERR, "Err")
         };
 
@@ -145,7 +143,7 @@ public class TestBrokerArchitecture {
                     p.flush();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                sLog.error(e);
             }
         };
     }
@@ -161,7 +159,6 @@ public class TestBrokerArchitecture {
 
         Runnable[] tasks = {
             createConsumer(TOPIC_MSG, func),
-            createConsumer(TOPIC_BIN, func),
             createConsumer(TOPIC_ERR, func),
         };
 
@@ -186,7 +183,7 @@ public class TestBrokerArchitecture {
                 }
 
             } catch (IOException e) {
-                e.printStackTrace();
+                sLog.error(e);
             }
         };
     }
