@@ -21,7 +21,11 @@
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
 import org.nuxeo.ecm.core.api.*;
+import org.nuxeo.ecm.platform.importer.kafka.message.Data;
+import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 
+import java.io.IOException;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -58,12 +62,37 @@ public class FileFactory {
         DocumentModel fileDoc = mSession.createDocumentModel("/", filename, "File");
         fileDoc.setProperty("dublincore", "title", filename.toUpperCase());
 
-        Blob blob = Blobs.createBlob(filename.getBytes());
-        blob.setFilename("test.txt");
-        blob.setMimeType("plain/text");
+        Blob blob = createBlob(filename);
         fileDoc.setProperty("file", "content", blob);
 
         fileDoc = mSession.createDocument(fileDoc);
         return fileDoc;
+    }
+
+
+    // TODO: Make it random make it crazy :)
+    protected List<Message> createMessages() throws IOException {
+        DocumentModel model = createFileDocument(UUID.randomUUID().toString());
+
+        Message msg = new Message();
+        msg.setDigest("");
+        msg.setName(model.getName());
+        msg.setFolderish(model.isFolder());
+        msg.setPath(model.getPathAsString());
+
+        Blob blob = createBlob(model.getName());
+        Data data = new Data(blob);
+
+        msg.setData(Collections.singletonList(data));
+
+        return Collections.singletonList(msg);
+    }
+
+    protected Blob createBlob(String data) {
+        Blob blob = Blobs.createBlob(data.getBytes());
+        blob.setFilename("test.txt");
+        blob.setMimeType("plain/text");
+
+        return blob;
     }
 }

@@ -20,15 +20,13 @@
 
 package org.nuxeo.ecm.platform.importer.kafka.message;
 
-import org.codehaus.jackson.annotate.JsonIgnore;
-import org.codehaus.jackson.annotate.JsonProperty;
-import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 
 public class Message {
@@ -36,11 +34,14 @@ public class Message {
     private String mName;
     private String mPath;
     private boolean isFolderish;
-    private transient BlobHolder mBlobHolder;
     private Map<String, Serializable> mProperties;
     private List<Data> mData;
+    private String mDigest;
+    private String mHash;
+    private String mParentHash;
 
     public Message() {
+        mHash = UUID.randomUUID().toString();
     }
 
     public Message(SourceNode node) throws IOException {
@@ -48,7 +49,6 @@ public class Message {
         this.mPath = node.getSourcePath();
 
         this.isFolderish = node.isFolderish();
-        this.mBlobHolder = node.getBlobHolder();
 
         if (node.getBlobHolder() != null) {
             this.mProperties = node.getBlobHolder().getProperties();
@@ -65,6 +65,7 @@ public class Message {
         this.mName = mName;
     }
 
+
     public String getPath() {
         return mPath;
     }
@@ -72,6 +73,7 @@ public class Message {
     public void setPath(String mPath) {
         this.mPath = mPath;
     }
+
 
     public boolean isFolderish() {
         return isFolderish;
@@ -81,15 +83,6 @@ public class Message {
         isFolderish = folderish;
     }
 
-    @JsonIgnore
-    public BlobHolder getBlobHolder() {
-        return mBlobHolder;
-    }
-
-    @JsonProperty
-    public void setBlobHolder(BlobHolder mBlobHolder) {
-        this.mBlobHolder = mBlobHolder;
-    }
 
     public List<Data> getData() {
         return mData;
@@ -99,6 +92,7 @@ public class Message {
         this.mData = data;
     }
 
+
     public Map<String, Serializable> getProperties() {
         return mProperties;
     }
@@ -107,13 +101,39 @@ public class Message {
         this.mProperties = properties;
     }
 
+
+    public void setHash(String hash) {
+        this.mHash = hash;
+    }
+
+    public String getHash() {
+        return mHash;
+    }
+
+    public String getParentHash() {
+        return mParentHash;
+    }
+
+    public void setParentHash(String parentHash) {
+        this.mParentHash = parentHash;
+    }
+
+
+    public String getDigest() {
+        return mDigest;
+    }
+
+    public void setDigest(String digest) {
+        this.mDigest = digest;
+    }
+
+
     @Override
     public String toString() {
         return "Message{" +
                 "mName='" + mName + '\'' +
                 ", mPath='" + mPath + '\'' +
                 ", isFolderish=" + isFolderish +
-                ", mBlobHolder=" + mBlobHolder +
                 ", mProperties=" + mProperties +
                 ", mData=" + mData +
                 '}';
