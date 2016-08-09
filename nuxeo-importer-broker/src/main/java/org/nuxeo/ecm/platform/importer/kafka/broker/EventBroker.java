@@ -75,7 +75,7 @@ public class EventBroker {
             throw new Exception("Could not load the Broker");
         }
 
-        mZKService.execute(mZKServer.start());
+        mZKService.execute(mZKServer);
         mZKService.shutdown();
 
         mKafkaServer.startup();
@@ -90,12 +90,13 @@ public class EventBroker {
 
         mKafkaServer.shutdown();
         mKafkaServer.awaitShutdown();
-
-        mInternalService.shutdown();
-        mInternalService.awaitTermination(5, TimeUnit.MINUTES);
+        log.info("Kafka stopped");
 
         mZKServer.stop();
         mZKService.awaitTermination(5, TimeUnit.MINUTES);
+        log.info("ZK stopped");
+        mInternalService.shutdown();
+        mInternalService.awaitTermination(5, TimeUnit.MINUTES);
     }
 
     
