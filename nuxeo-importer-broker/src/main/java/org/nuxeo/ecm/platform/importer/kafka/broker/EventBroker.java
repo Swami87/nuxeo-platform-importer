@@ -47,7 +47,6 @@ public class EventBroker {
     private ZooKeeperStartable mZKServer;
     private KafkaServerStartable mKafkaServer;
 
-
     public EventBroker(Map<String, String> properties) throws Exception {
         String zkProps = properties.get(Settings.ZOOKEEPER);
 
