@@ -28,26 +28,19 @@ import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.zookeeper.server.ServerConfig;
-import org.apache.zookeeper.server.ZooKeeperServerMain;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 
-public class ZooKeeperStartable {
+public class ZooKeeperStartable implements Runnable {
     private static final Log log = LogFactory.getLog(ZooKeeperStartable.class);
 
     private final ServerConfig mConfiguration = new ServerConfig();
-    private ExecutorService mServiceExecutor = Executors.newSingleThreadExecutor();
 
-    private ZooKeeperServerMain mZooKeeperServer;
+    private ZKS mZooKeeperServer;
 
     public ZooKeeperStartable(Properties properties) throws IOException {
         QuorumPeerConfig quorumConfiguration = new QuorumPeerConfig();
@@ -57,7 +50,7 @@ public class ZooKeeperStartable {
             throw new RuntimeException(e);
         }
 
-        mZooKeeperServer = new ZooKeeperServerMain();
+        mZooKeeperServer = new ZKS();
         mConfiguration.readFrom(quorumConfiguration);
     }
 
@@ -86,32 +79,16 @@ public class ZooKeeperStartable {
         AdminUtils.createTopic(utils, name, partition, replication, new Properties(), RackAwareMode.Disabled$.MODULE$);
     }
 
-    public Runnable start() throws Exception {
-        if (mZooKeeperServer == null) {
-            throw new Exception("ZooKeeper failed");
+    @Override
+    public void run() {
+        try {
+            mZooKeeperServer.runFromConfig(mConfiguration);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        return () -> {
-            log.info("Zookeeper started");
-            try {
-                mZooKeeperServer.runFromConfig(mConfiguration);
-            } catch(Exception e) {
-                log.error(e);
-            }
-        };
     }
 
     public void stop() throws InterruptedException {
-        try {
-            // Using protected method of ZooKeeperServerMain class via reflection
-            Method shutdown = ZooKeeperServerMain.class.getDeclaredMethod("shutdown");
-            shutdown.setAccessible(true);
-            shutdown.invoke(mZooKeeperServer);
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            log.error(e);
-        }
-
-        mServiceExecutor.shutdown();
-        mServiceExecutor.awaitTermination(60, TimeUnit.MINUTES);
+        mZooKeeperServer.shutdown();
     }
 }

@@ -27,6 +27,10 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.*;
 import org.junit.runner.RunWith;
+import org.nuxeo.ecm.core.api.Blob;
+import org.nuxeo.ecm.core.api.CoreSession;
+import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.api.PathRef;
 import org.nuxeo.ecm.core.test.CoreFeature;
 import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
@@ -38,9 +42,11 @@ import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
+import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,61 +61,67 @@ import java.util.function.Function;
 @RunWith(FeaturesRunner.class)
 @Features(CoreFeature.class)
 @RepositoryConfig(cleanup = Granularity.METHOD)
+@Deploy({ "org.nuxeo.ecm.platform.filemanager.api", //
+        "org.nuxeo.ecm.platform.filemanager.core", //
+})
 public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
+
+    private static EventBroker sBroker;
+    private static ExecutorService sProducerService = Executors.newFixedThreadPool(2);
+    private static ExecutorService sConsumerService = Executors.newFixedThreadPool(2);
 
     private static final String TOPIC_MSG = "messenger";
     private static final String TOPIC_ERR = "error";
 
-    private ExecutorService mProducerService = Executors.newFixedThreadPool(2);
-    private ExecutorService mConsumerService = Executors.newFixedThreadPool(2);
-
     private SourceNode mMsgNode = RandomTextSourceNode.init(1024, 16, true);
     private SourceNode mErrNode = RandomTextSourceNode.init(1024, 16, true);
 
-    private EventBroker mBroker;
+    @Inject
+    CoreSession session;
 
     @BeforeClass
-    public static void setUpClass() {
+    public static void setUpClass() throws Exception {
         RandomTextSourceNode.CACHE_CHILDREN = true;
-    }
-
-    @Before
-    public void setUp() throws Exception {
-
-        System.out.println( String.format(
-                "msg: %d\nerr: %d",
-                mMsgNode.getChildren().size(),
-                mErrNode.getChildren().size()
-        ) );
-
 
         Map<String, String> props = new HashMap<>();
         props.put(Settings.KAFKA, "kafka.props");
         props.put(Settings.ZOOKEEPER, "zk.props");
 
-        mBroker = new EventBroker(props);
-        mBroker.start();
+        sBroker = new EventBroker(props);
+        sBroker.start();
 
-        mBroker.createTopic(TOPIC_MSG, 4, 1);
-        mBroker.createTopic(TOPIC_ERR, 4, 1);
+        sBroker.createTopic(TOPIC_MSG, 4, 1);
+        sBroker.createTopic(TOPIC_ERR, 4, 1);
     }
 
-    @After
-    public void shutdown() throws Exception {
-        mProducerService.awaitTermination(120, TimeUnit.SECONDS);
-        mConsumerService.awaitTermination(120, TimeUnit.SECONDS);
 
-        mBroker.stop();
+    @AfterClass
+    public static void shutdown() throws Exception {
+        sProducerService.awaitTermination(5, TimeUnit.SECONDS);
+        sConsumerService.awaitTermination(5, TimeUnit.SECONDS);
+
+        sBroker.stop();
     }
+
 
 
     @Test
-    public void testShouldWork() throws IOException {
-        populateConsumers();
-        populateProducers();
+    public void testShouldReturnDigest() throws IOException {
+        String filename = "testDoc";
+        new FileFactory(session).createFileDocument(filename);
+        DocumentModel model = session.getDocument(new PathRef("/" + filename));
+        Blob b = (Blob) model.getProperty("file", "content");
+        Assert.assertNotNull(b.getDigest());
+    }
 
-        Assert.assertTrue(true);
+    @Test
+    public void testShouldCreateLotsOfDigests() {
+        FileFactory factory = new FileFactory(session);
+
+        List<String> dgsts = factory.generateFiles(100);
+
+        dgsts.forEach(System.out::println);
     }
 
 
@@ -120,9 +132,9 @@ public class TestBrokerArchitecture {
         };
 
         for (Runnable r : tasks) {
-            mProducerService.execute(r);
+            sProducerService.execute(r);
         }
-        mProducerService.shutdown();
+        sProducerService.shutdown();
     }
 
 
@@ -163,9 +175,9 @@ public class TestBrokerArchitecture {
         };
 
         for (Runnable r : tasks) {
-            mConsumerService.execute(r);
+            sConsumerService.execute(r);
         }
-        mConsumerService.shutdown();
+        sConsumerService.shutdown();
     }
 
 

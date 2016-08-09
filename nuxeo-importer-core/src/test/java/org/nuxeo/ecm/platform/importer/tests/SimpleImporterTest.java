@@ -21,8 +21,6 @@
 
 package org.nuxeo.ecm.platform.importer.tests;
 
-import static org.junit.Assert.assertTrue;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.nuxeo.ecm.core.test.CoreFeature;
@@ -34,6 +32,8 @@ import org.nuxeo.ecm.platform.importer.source.SourceNode;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
+
+import static org.junit.Assert.assertTrue;
 
 @RunWith(FeaturesRunner.class)
 @Features(CoreFeature.class)
@@ -50,7 +50,7 @@ public class SimpleImporterTest {
      */
 
     @Test
-    public void testRamdomImport() throws Exception {
+    public void testRandomImport() throws Exception {
 
         // System.out.println("Starting prefill");
         SourceNode src = RandomTextSourceNode.init(500);

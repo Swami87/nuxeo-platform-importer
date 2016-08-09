@@ -23,7 +23,6 @@ package org.nuxeo.ecm.platform.importer.kafka.importer;
 import org.nuxeo.ecm.core.api.Blobs;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.api.UnrestrictedSessionRunner;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 
@@ -44,18 +43,18 @@ public class Importer {
     }
 
     public void runImport() {
-        UnrestrictedSessionRunner runner = new UnrestrictedSessionRunner(mModel.getRepositoryName()) {
-            @Override
-            public void run() {
+//        UnrestrictedSessionRunner runner = new UnrestrictedSessionRunner(mModel.getRepositoryName()) {
+//            @Override
+//            public void run() {
                 try {
-                    processMessage(session, mMessage);
+                    processMessage(mModel.getCoreSession(), mMessage);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-        };
-
-        runner.runUnrestricted();
+//            }
+//        };
+//
+//        runner.runUnrestricted();
     }
 
 
