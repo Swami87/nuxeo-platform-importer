@@ -34,7 +34,6 @@ import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.ImportOperation;
-import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
@@ -52,7 +51,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -80,6 +78,8 @@ public class TestBrokerArchitecture {
     @Inject
     private CoreSession session;
 
+    private ImportOperation operation;
+
     @BeforeClass
     public static void setUpClass() throws Exception {
         RandomTextSourceNode.CACHE_CHILDREN = true;
@@ -106,6 +106,7 @@ public class TestBrokerArchitecture {
         FileFactory factory = new FileFactory(session);
         mMessages = new LinkedList<>();
         mBlobs = factory.preImportBlobs(AMOUNT);
+        operation = new ImportOperation(session.getRootDocument());
 
         IntStream.range(0, AMOUNT).forEach(i -> {
             Message msg = FileFactory.generateMessage();
@@ -143,12 +144,14 @@ public class TestBrokerArchitecture {
         sProducerService.awaitTermination(60, TimeUnit.SECONDS);
         sConsumerService.awaitTermination(60, TimeUnit.SECONDS);
 
+
+        pool.invoke(operation);
+
+        // TODO: Take a look deeper into ForkJoinPool
+        operation.join();
+//        Thread.sleep(5000); // Without delay ImportOperation cannot finish import
+
         DocumentModelList list = session.query("SELECT * FROM Document");
-        list.forEach(model -> {
-            if (model.isFolder()) {
-                System.out.println(model);
-            }
-        });
         Assert.assertEquals(AMOUNT*2, list.size());
     }
 
@@ -185,31 +188,25 @@ public class TestBrokerArchitecture {
         };
     }
 
-    private ForkJoinPool pool = new ForkJoinPool(1);
+    private ForkJoinPool pool = new ForkJoinPool(8);
 
     private void populateConsumers() {
         Function<ConsumerRecords<String, Message>, Void> func = records -> {
             for (ConsumerRecord<String, Message> cr : records) {
-                System.out.println(cr.key() + ": " + cr.value());
+                sLog.info(cr.key() + ": " + cr.value());
             }
             return null;
         };
 
-        ImportOperation operation = new ImportOperation(session.getRootDocument());
-
         Runnable[] tasks = {
             createConsumer(TOPIC_MSG, records -> {
-                AtomicBoolean flag = new AtomicBoolean(false);
+
                 records.forEach(x -> {
-//                    operation.pushMessage(x.value());
-//                    if (!flag.getAndSet(true)) {
-//                         pool.invoke(operation);
-//                    }
-//                    FileFactory factory = new FileFactory(session);
-//                    factory.createFileDocument(x.value());
-                    new Importer(session).importMessage(x.value());
+                    operation.pushMessage(x.value());
+
+//                    new Importer(session).importMessage(x.value());
                 } );
-//                operation.join();
+
                 return null;
             }),
             createConsumer(TOPIC_ERR, func),
@@ -234,7 +231,6 @@ public class TestBrokerArchitecture {
                     func.apply(records);
                     records = c.poll(500);
                 }
-
             } catch (IOException e) {
                 sLog.error(e);
             }
