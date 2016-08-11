@@ -29,10 +29,7 @@ import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.IntStream;
 
 public class FileFactory {
@@ -61,6 +58,8 @@ public class FileFactory {
 
         String title = UUID.randomUUID().toString();
         msg.setTitle(title.toLowerCase());
+        int random  = new Random().nextInt(100);
+        msg.setType(random > 50 ? "Folder" : "File");
         msg.setHash(title);
         msg.setFolderish(false);
         msg.setPath("/");

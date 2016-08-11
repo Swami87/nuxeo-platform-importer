@@ -45,7 +45,7 @@ public class ImportOperation extends RecursiveAction {
             new ImportOperation(mModel).fork();
         }
 
-        new Importer(mModel.getCoreSession(), currentMessage).runImport();
+        new Importer(mModel.getCoreSession()).importMessage(currentMessage);
     }
 
     public void pushMessage(Message message) {

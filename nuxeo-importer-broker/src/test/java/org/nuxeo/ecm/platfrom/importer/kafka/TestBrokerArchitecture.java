@@ -34,6 +34,7 @@ import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.ImportOperation;
+import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
@@ -142,7 +143,12 @@ public class TestBrokerArchitecture {
         sProducerService.awaitTermination(60, TimeUnit.SECONDS);
         sConsumerService.awaitTermination(60, TimeUnit.SECONDS);
 
-        DocumentModelList list = session.query("SELECT * FROM File");
+        DocumentModelList list = session.query("SELECT * FROM Document");
+        list.forEach(model -> {
+            if (model.isFolder()) {
+                System.out.println(model);
+            }
+        });
         Assert.assertEquals(AMOUNT*2, list.size());
     }
 
@@ -199,9 +205,9 @@ public class TestBrokerArchitecture {
 //                    if (!flag.getAndSet(true)) {
 //                         pool.invoke(operation);
 //                    }
-                    FileFactory factory = new FileFactory(session);
-                    factory.createFileDocument(x.value());
-//                    new Importer(session, x.value());
+//                    FileFactory factory = new FileFactory(session);
+//                    factory.createFileDocument(x.value());
+                    new Importer(session).importMessage(x.value());
                 } );
 //                operation.join();
                 return null;

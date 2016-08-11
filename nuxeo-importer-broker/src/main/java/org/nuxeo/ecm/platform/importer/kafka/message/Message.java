@@ -38,6 +38,7 @@ public class Message {
     private List<Data> mData;
     private String mHash;
     private String mParentHash;
+    private String mType;
 
     public Message() {
         mHash = UUID.randomUUID().toString();
@@ -71,6 +72,14 @@ public class Message {
 
     public void setPath(String mPath) {
         this.mPath = mPath;
+    }
+
+    public String getType() {
+        return mType;
+    }
+
+    public void setType(String type) {
+        this.mType = type;
     }
 
 
