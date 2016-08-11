@@ -149,7 +149,7 @@ public class TestBrokerArchitecture {
 
         // TODO: Take a look deeper into ForkJoinPool
         operation.join();
-//        Thread.sleep(5000); // Without delay ImportOperation cannot finish import
+//        Thread.sleep(2000); // Without delay ImportOperation cannot finish import
 
         DocumentModelList list = session.query("SELECT * FROM Document");
         Assert.assertEquals(AMOUNT*2, list.size());
@@ -188,7 +188,7 @@ public class TestBrokerArchitecture {
         };
     }
 
-    private ForkJoinPool pool = new ForkJoinPool(8);
+    private ForkJoinPool pool = new ForkJoinPool(16);
 
     private void populateConsumers() {
         Function<ConsumerRecords<String, Message>, Void> func = records -> {
