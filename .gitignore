@@ -13,3 +13,5 @@ target
 *.iws
 .DS_Store
 .idea
+*.log
+src/

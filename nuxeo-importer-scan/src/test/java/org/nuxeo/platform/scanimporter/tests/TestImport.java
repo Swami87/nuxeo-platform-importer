@@ -18,12 +18,6 @@
  */
 package org.nuxeo.platform.scanimporter.tests;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-import java.io.File;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
@@ -32,9 +26,12 @@ import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.platform.scanimporter.processor.ScannedFileImporter;
 import org.nuxeo.ecm.platform.scanimporter.service.ImporterConfig;
-import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.LocalDeploy;
 import org.nuxeo.runtime.transaction.TransactionHelper;
+
+import java.io.File;
+
+import static org.junit.Assert.*;
 
 @LocalDeploy({ "org.nuxeo.ecm.platform.scanimporter.test:needed-contribution-for-factory-deployment.xml",
         "org.nuxeo.ecm.platform.scanimporter.test:OSGI-INF/core-type-test-contrib.xml" })

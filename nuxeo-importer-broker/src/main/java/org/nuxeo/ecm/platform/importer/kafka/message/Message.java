@@ -31,12 +31,11 @@ import java.util.UUID;
 
 public class Message {
 
-    private String mName;
+    private String mTitle;
     private String mPath;
     private boolean isFolderish;
     private Map<String, Serializable> mProperties;
     private List<Data> mData;
-    private String mDigest;
     private String mHash;
     private String mParentHash;
 
@@ -45,7 +44,7 @@ public class Message {
     }
 
     public Message(SourceNode node) throws IOException {
-        this.mName = node.getName();
+        this.mTitle = node.getName();
         this.mPath = node.getSourcePath();
 
         this.isFolderish = node.isFolderish();
@@ -57,12 +56,12 @@ public class Message {
     }
 
 
-    public String getName() {
-        return mName;
+    public String getTitle() {
+        return mTitle;
     }
 
-    public void setName(String mName) {
-        this.mName = mName;
+    public void setTitle(String title) {
+        this.mTitle = title;
     }
 
 
@@ -84,15 +83,6 @@ public class Message {
     }
 
 
-    public List<Data> getData() {
-        return mData;
-    }
-
-    public void setData(List<Data> data) {
-        this.mData = data;
-    }
-
-
     public Map<String, Serializable> getProperties() {
         return mProperties;
     }
@@ -110,6 +100,7 @@ public class Message {
         return mHash;
     }
 
+
     public String getParentHash() {
         return mParentHash;
     }
@@ -118,20 +109,19 @@ public class Message {
         this.mParentHash = parentHash;
     }
 
-
-    public String getDigest() {
-        return mDigest;
+    public List<Data> getData() {
+        return mData;
     }
 
-    public void setDigest(String digest) {
-        this.mDigest = digest;
+    public void setData(List<Data> data) {
+        this.mData = data;
     }
 
 
     @Override
     public String toString() {
         return "Message{" +
-                "mName='" + mName + '\'' +
+                "mTitle='" + mTitle + '\'' +
                 ", mPath='" + mPath + '\'' +
                 ", isFolderish=" + isFolderish +
                 ", mProperties=" + mProperties +
@@ -147,13 +137,13 @@ public class Message {
         Message message = (Message) o;
 
         if (isFolderish != message.isFolderish) return false;
-        if (!mName.equals(message.mName)) return false;
+        if (!mTitle.equals(message.mTitle)) return false;
         return mPath != null && mPath.equals(message.mPath);
     }
 
     @Override
     public int hashCode() {
-        int result = mName.hashCode();
+        int result = mTitle.hashCode();
         result = 31 * result + (mPath != null ? mPath.hashCode() : 0);
         result = 31 * result + (isFolderish ? 1 : 0);
         return result;

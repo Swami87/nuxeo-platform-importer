@@ -23,8 +23,10 @@ package org.nuxeo.ecm.platform.importer.kafka.importer;
 import org.nuxeo.ecm.core.api.Blobs;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.api.UnrestrictedSessionRunner;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -34,38 +36,41 @@ import java.util.Map;
 
 public class Importer {
 
-    private DocumentModel mModel;
     private Message mMessage;
+    private CoreSession mCoreSession;
 
-    public Importer(DocumentModel model, Message message) {
-        this.mModel = model;
+    public Importer(CoreSession session, Message message) {
+        this.mCoreSession = session;
         this.mMessage = message;
     }
 
     public void runImport() {
-//        UnrestrictedSessionRunner runner = new UnrestrictedSessionRunner(mModel.getRepositoryName()) {
-//            @Override
-//            public void run() {
+        UnrestrictedSessionRunner runner = new UnrestrictedSessionRunner(mCoreSession) {
+            @Override
+            public void run() {
                 try {
-                    processMessage(mModel.getCoreSession(), mMessage);
+                    TransactionHelper.startTransaction();
+                    processMessage(session, mMessage);
+                    TransactionHelper.commitOrRollbackTransaction();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-//            }
-//        };
-//
-//        runner.runUnrestricted();
+            }
+        };
+
+        runner.runUnrestricted();
     }
 
 
     private void processMessage(CoreSession session, Message message) throws IOException {
-        if (message == null || session == null) return;
+        if (message == null) return;
 
         String fileName = null;
         String name = null;
 
         List<Data> data = message.getData();
         if (data != null && data.size() > 0) {
+
             fileName = data.get(0).getFileName();
             Map<String, Serializable> props = message.getProperties();
             if (props != null) {
@@ -78,7 +83,7 @@ public class Importer {
                 fileName = name;
             }
 
-            DocumentModel doc = session.createDocumentModel(mModel.getPathAsString(), name, "File");
+            DocumentModel doc = session.createDocumentModel("/", name, "File");
 
             doc.setProperty("dublincore", "title", name);
             doc.setProperty("file", "filename", fileName);

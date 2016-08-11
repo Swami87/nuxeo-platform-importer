@@ -55,6 +55,6 @@ public class TestMessageClass {
         MessageDeserializer deserializer = new MessageDeserializer();
         Message m = deserializer.deserialize("", binaryMessage);
 
-        Assert.assertTrue(m.getName().equals(mMessage.getName()));
+        Assert.assertTrue(m.getTitle().equals(mMessage.getTitle()));
     }
 }
