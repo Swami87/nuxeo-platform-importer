@@ -40,9 +40,11 @@ public class ImportOperation extends RecursiveAction {
     @Override
     protected void compute() {
         Message currentMessage = mMessages.get(0);
+        ImportOperation io = new ImportOperation(mModel);
         if (mMessages.size() > 1) {
             mMessages.remove(0);
-            new ImportOperation(mModel).fork();
+            io.mMessages.addAll(mMessages);
+            io.fork();
         }
 
         new Importer(mModel.getCoreSession()).importMessage(currentMessage);
