@@ -44,7 +44,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 
 
@@ -69,22 +68,6 @@ public class TestBrokerBasics {
         mBroker.start();
     }
 
-    @Test
-    public void testShouldCreateProducer() throws IOException {
-
-        Properties props = ServiceHelper.loadProperties("producer.props");
-
-        Producer<String, String> producer = new Producer<>(props);
-        assertNotNull(producer);
-    }
-
-    @Test
-    public void testShouldCreateConsumer() throws IOException {
-        Properties props = ServiceHelper.loadProperties("consumer.props");
-
-        Consumer<String, String> consumer = new Consumer<>(props);
-        assertNotNull(consumer);
-    }
 
     @Test
     public void testShouldSendAndReceiveMsgViaBroker() throws Exception {

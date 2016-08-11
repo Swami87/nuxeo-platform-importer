@@ -20,85 +20,55 @@
 
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
-import org.nuxeo.ecm.core.api.Blobs;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.api.UnrestrictedSessionRunner;
+import org.nuxeo.ecm.core.blob.BlobManager;
+import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.transaction.TransactionHelper;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
 
 public class Importer {
 
-    private Message mMessage;
+    private static final Log sLogger = LogFactory.getLog(Importer.class);
+
     private CoreSession mCoreSession;
 
-    public Importer(CoreSession session, Message message) {
+    public Importer(CoreSession session) {
         this.mCoreSession = session;
-        this.mMessage = message;
-    }
-
-    public void runImport() {
-        UnrestrictedSessionRunner runner = new UnrestrictedSessionRunner(mCoreSession) {
-            @Override
-            public void run() {
-                try {
-                    TransactionHelper.startTransaction();
-                    processMessage(session, mMessage);
-                    TransactionHelper.commitOrRollbackTransaction();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-
-        runner.runUnrestricted();
     }
 
 
-    private void processMessage(CoreSession session, Message message) throws IOException {
-        if (message == null) return;
+    public void importMessage(Message message) {
+        DocumentModel model = mCoreSession.createDocumentModel(message.getPath(), message.getTitle(), message.getType());
+        model.setProperty("dublincore", "title", model.getTitle());
 
-        String fileName = null;
-        String name = null;
+        if (message.getData() != null && message.getData().get(0) != null) {
+            BlobManager blobManager = Framework.getService(BlobManager.class);
+            String provider = blobManager.getBlobProviders().keySet().iterator().next();
 
-        List<Data> data = message.getData();
-        if (data != null && data.size() > 0) {
+            Data data = message.getData().get(0);
 
-            fileName = data.get(0).getFileName();
-            Map<String, Serializable> props = message.getProperties();
-            if (props != null) {
-                name = (String) message.getProperties().get("name");
-            }
+            BlobManager.BlobInfo info = new BlobManager.BlobInfo();
 
-            if (name == null) {
-                name = fileName;
-            } else if (fileName == null) {
-                fileName = name;
-            }
+            info.key = provider + ":" + data.getDigest();
+            info.digest = message.getData().get(0).getDigest();
+            info.mimeType = data.getMimeType();
+            info.filename = data.getFileName();
+            info.encoding = data.getEncoding();
+            info.length = data.getLength();
 
-            DocumentModel doc = session.createDocumentModel("/", name, "File");
-
-            doc.setProperty("dublincore", "title", name);
-            doc.setProperty("file", "filename", fileName);
-            Data d = message.getData().get(0);
-            doc.setProperty("file", "content", Blobs.createBlob(d.getBytes(), d.getMimeType(), d.getEncoding()));
-
-            if (props != null) {
-                for (Map.Entry<String, Serializable> entry : props.entrySet()) {
-                    doc.setPropertyValue(entry.getKey(), entry.getValue());
-                }
-
-                doc = session.saveDocument(doc);
-            }
-
-            session.createDocument(doc);
+            Blob blob = new SimpleManagedBlob(info);
+            model.setProperty("file", "content", blob);
         }
+
+        TransactionHelper.startTransaction();
+        mCoreSession.createDocument(model);
+        TransactionHelper.commitOrRollbackTransaction();
     }
 }
