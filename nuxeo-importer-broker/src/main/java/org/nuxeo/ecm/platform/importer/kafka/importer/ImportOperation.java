@@ -32,22 +32,30 @@ public class ImportOperation extends RecursiveAction {
 
     private List<Message> mMessages = Collections.synchronizedList(new LinkedList<>());
     private DocumentModel mModel;
+    private Message mMessage;
 
     public ImportOperation(DocumentModel model) {
         this.mModel = model;
     }
 
+    public ImportOperation(DocumentModel mModel, Message mMessage) {
+        this.mModel = mModel;
+        this.mMessage = mMessage;
+    }
+
     @Override
     protected void compute() {
-        Message currentMessage = mMessages.get(0);
-        ImportOperation io = new ImportOperation(mModel);
-        if (mMessages.size() > 1) {
-            mMessages.remove(0);
-            io.mMessages.addAll(mMessages);
-            io.fork();
-        }
+        if (mMessage != null) {
+            new Importer(mModel.getCoreSession()).importMessage(mMessage);
+        } else {
+            LinkedList<RecursiveAction> operations = new LinkedList<>();
+            for (Message m : mMessages) {
+                ImportOperation operation = new ImportOperation(mModel, m);
+                operations.add(operation);
+            }
 
-        new Importer(mModel.getCoreSession()).importMessage(currentMessage);
+            invokeAll(operations);
+        }
     }
 
     public void pushMessage(Message message) {
