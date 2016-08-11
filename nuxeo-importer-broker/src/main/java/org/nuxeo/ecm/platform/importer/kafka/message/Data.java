@@ -27,7 +27,6 @@ import java.io.IOException;
 
 public class Data {
 
-
     private byte[] mBytes;
     private String mFileName;
     private String mDigest;
@@ -38,9 +37,11 @@ public class Data {
     public Data() {
     }
 
-
     public Data(Blob blob) throws IOException {
-        this.mBytes = blob.getByteArray();
+//        if (blob.getByteArray() != null) {
+//            this.mBytes = blob.getByteArray();
+//        }
+
         this.mDigest = blob.getDigest();
         this.mEncoding = blob.getEncoding();
         this.mFileName = blob.getFilename();

@@ -21,8 +21,12 @@
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
 import org.nuxeo.ecm.core.api.*;
+import org.nuxeo.ecm.core.blob.BlobManager;
+import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.runtime.api.Framework;
+import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -39,12 +43,49 @@ public class FileFactory {
         this.mSession = session;
     }
 
-    protected List<String> generateFiles(int amount) throws IllegalArgumentException {
+    static Message createMessage(DocumentModel model) throws IOException {
+        Message msg = new Message();
+        msg.setTitle(model.getName());
+        msg.setFolderish(model.isFolder());
+        msg.setPath(model.getPathAsString());
+
+        Blob blob = (Blob) model.getProperty("file", "content");
+        Data data = new Data(blob);
+        msg.setData(Collections.singletonList(data));
+
+        return msg;
+    }
+
+    static Message generateMessage() {
+        Message msg = new Message();
+
+        String title = UUID.randomUUID().toString();
+        msg.setTitle(title.toLowerCase());
+        msg.setHash(title);
+        msg.setFolderish(false);
+        msg.setPath("/");
+
+        return msg;
+    }
+
+    static Data generateData(String digest, long length) throws IOException {
+        BlobManager.BlobInfo info = new BlobManager.BlobInfo();
+        info.digest = digest;
+        info.mimeType = "plain/text";
+        info.filename = UUID.randomUUID().toString() + ".txt";
+        info.encoding = "UTF-8";
+        info.length = length;
+
+        Blob blob = new SimpleManagedBlob(info);
+        return new Data(blob);
+    }
+
+    protected List<Blob> preImportBlobs(int amount) throws IllegalArgumentException {
         if (amount < 1) {
             throw new IllegalArgumentException("amount should be greater than 0");
         }
 
-        List<String> digests = new LinkedList<>();
+        List<Blob> blobs = new LinkedList<>();
         IntStream.range(0, amount)
                 .forEach( i -> {
                     String randomName = UUID.randomUUID().toString();
@@ -52,10 +93,27 @@ public class FileFactory {
 
                     DocumentModel model = mSession.getDocument(new PathRef(created.getPathAsString()));
                     Blob b = (Blob) model.getProperty("file", "content");
-                    digests.add(b.getDigest());
+
+                    blobs.add(b);
                 });
 
-        return digests;
+        return blobs;
+    }
+
+    // TODO: Make it random make it crazy :)
+    protected List<Message> createDocumentsOnServer(int amount) throws IOException {
+        List<Message> list = new LinkedList<>();
+
+        for (int i = 0; i < amount; i++) {
+            String docName = UUID.randomUUID().toString();
+            createFileDocument(docName);
+
+            DocumentModel model = mSession.getDocument(new PathRef("/" + docName));
+
+            list.add(createMessage(model));
+        }
+
+        return list;
     }
 
     protected DocumentModel createFileDocument(String filename) {
@@ -69,28 +127,40 @@ public class FileFactory {
         return fileDoc;
     }
 
+    protected DocumentModel createFileDocument(Message message) {
+        DocumentModel fileDoc = mSession.createDocumentModel("/", message.getTitle(), "File");
+        fileDoc.setProperty("dublincore", "title", message.getTitle().toUpperCase());
 
-    // TODO: Make it random make it crazy :)
-    protected List<Message> createMessages() throws IOException {
-        DocumentModel model = createFileDocument(UUID.randomUUID().toString());
+        if (message.getData() != null) {
+            BlobManager manager = Framework.getService(BlobManager.class);
+            String providerId = manager.getBlobProviders().keySet().iterator().next();
 
-        Message msg = new Message();
-        msg.setDigest("");
-        msg.setName(model.getName());
-        msg.setFolderish(model.isFolder());
-        msg.setPath(model.getPathAsString());
+            Data data = message.getData().get(0);
+            BlobManager.BlobInfo info = new BlobManager.BlobInfo();
 
-        Blob blob = createBlob(model.getName());
-        Data data = new Data(blob);
+            info.key = providerId + ":" + data.getDigest();
+            info.digest = message.getData().get(0).getDigest();
+            info.mimeType = data.getMimeType();
+            info.filename = data.getFileName();
+            info.encoding = data.getEncoding();
+            info.length = data.getLength();
 
-        msg.setData(Collections.singletonList(data));
+            Blob blob = new SimpleManagedBlob(info);
+            fileDoc.setProperty("file", "content", blob);
+        }
 
-        return Collections.singletonList(msg);
+
+        TransactionHelper.startTransaction();
+        fileDoc = mSession.createDocument(fileDoc);
+        TransactionHelper.commitOrRollbackTransaction();
+        return fileDoc;
     }
 
-    protected Blob createBlob(String data) {
+
+
+    private Blob createBlob(String data) {
         Blob blob = Blobs.createBlob(data.getBytes());
-        blob.setFilename("test.txt");
+        blob.setFilename(data + ".txt");
         blob.setMimeType("plain/text");
 
         return blob;
