@@ -21,45 +21,81 @@ package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 
 import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.api.DocumentNotFoundException;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.runtime.transaction.TransactionHelper;
 
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 public class ImportOperation extends RecursiveAction {
 
     private List<Message> mMessages = Collections.synchronizedList(new LinkedList<>());
+    private Set<String> hashes;
     private DocumentModel mModel;
-    private Message mMessage;
 
-    public ImportOperation(DocumentModel model) {
+    public ImportOperation(DocumentModel model, Set<String> set) {
         this.mModel = model;
-    }
-
-    public ImportOperation(DocumentModel mModel, Message mMessage) {
-        this.mModel = mModel;
-        this.mMessage = mMessage;
+        this.hashes = set;
     }
 
     @Override
     protected void compute() {
-        if (mMessage != null) {
-            new Importer(mModel.getCoreSession()).importMessage(mMessage);
-        } else {
-            LinkedList<RecursiveAction> operations = new LinkedList<>();
-            for (Message m : mMessages) {
-                ImportOperation operation = new ImportOperation(mModel, m);
-                operations.add(operation);
-            }
+        if (mMessages.size() == 0) return;
 
-            invokeAll(operations);
+        Message message = findMessage();
+
+        if (message == null) return;
+
+        mMessages.remove(message);
+
+        if (mMessages.size() > 0) {
+            ImportOperation operation = new ImportOperation(mModel, hashes);
+            operation.pushAll(mMessages);
+            operation.fork();
         }
+
+        if (TransactionHelper.isTransactionActive()) {
+            process(message);
+        } else {
+            TransactionHelper.startTransaction();
+            process(message);
+            TransactionHelper.commitOrRollbackTransaction();
+        }
+
+    }
+
+    private Message findMessage() {
+        for (Message message : mMessages) {
+            if (message.getParentHash() == null || hashes.contains(message.getParentHash())) {
+                return message;
+            }
+        }
+
+        return null;
+    }
+
+    private void process(Message message) {
+        try {
+            new Importer(mModel.getCoreSession()).importMessage(message);
+            hashes.add(message.getHash());
+//            System.out.println("Success: " + message.getPath() + ", folder ?: " + message.isFolderish());
+        } catch (DocumentNotFoundException e) {
+            System.out.println("Couldn't find the " + e.getLocalizedMessage());
+        }
+
     }
 
     public void pushMessage(Message message) {
         mMessages.add(message);
+    }
+
+    private void pushAll(Collection<Message> messages) {
+        mMessages.addAll(messages);
+    }
+
+    public int count() {
+        return mMessages.size();
     }
 
 }

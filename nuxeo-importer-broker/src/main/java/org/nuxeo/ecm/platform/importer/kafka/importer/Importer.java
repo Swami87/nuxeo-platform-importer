@@ -30,7 +30,6 @@ import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.api.Framework;
-import org.nuxeo.runtime.transaction.TransactionHelper;
 
 
 public class Importer {
@@ -67,8 +66,7 @@ public class Importer {
             model.setProperty("file", "content", blob);
         }
 
-        TransactionHelper.startTransaction();
+
         mCoreSession.createDocument(model);
-        TransactionHelper.commitOrRollbackTransaction();
     }
 }
