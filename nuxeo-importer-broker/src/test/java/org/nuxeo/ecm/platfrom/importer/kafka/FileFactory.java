@@ -25,8 +25,6 @@ import org.nuxeo.ecm.core.blob.BlobManager;
 import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
-import org.nuxeo.runtime.api.Framework;
-import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import java.io.IOException;
 import java.util.*;
@@ -40,28 +38,40 @@ public class FileFactory {
         this.mSession = session;
     }
 
-    static Message createMessage(DocumentModel model) throws IOException {
-        Message msg = new Message();
-        msg.setTitle(model.getName());
-        msg.setFolderish(model.isFolder());
-        msg.setPath(model.getPathAsString());
+    static List<Message> generateFileTree(int amount) {
+        if (amount < 1) {
+            throw new IllegalArgumentException("amount should be greater than 0");
+        }
 
-        Blob blob = (Blob) model.getProperty("file", "content");
-        Data data = new Data(blob);
-        msg.setData(Collections.singletonList(data));
+        List<Message> list = new LinkedList<>();
 
-        return msg;
+        for (int i = 1; i <= amount; i++) {
+            Message message = generateMessage(i);
+            list.add(message);
+            if (message.isFolderish()) {
+                for (int j = 1; j <= amount; j++) {
+                    Message nestedMessage = generateMessage(i*100 + j);
+                    String pathSeparator = message.getPath().equals("/") ? "" : "/";
+                    nestedMessage.setPath(message.getPath() + pathSeparator + message.getTitle());
+                    nestedMessage.setParentHash(message.getHash());
+                    list.add(nestedMessage);
+                }
+            }
+        }
+
+        return list;
     }
 
-    static Message generateMessage() {
-        Message msg = new Message();
+    private static Message generateMessage(int num) {
+        int random  = new Random(num).nextInt(100);
+        boolean isFolderish = random > 50;
+        String type = isFolderish ? "Folder" : "File";
+        String title = String.valueOf(num) + "_" + type;
 
-        String title = UUID.randomUUID().toString();
-        msg.setTitle(title.toLowerCase());
-        int random  = new Random().nextInt(100);
-        msg.setType(random > 50 ? "Folder" : "File");
-        msg.setHash(title);
-        msg.setFolderish(false);
+        Message msg = new Message();
+        msg.setTitle(title);
+        msg.setType(type);
+        msg.setFolderish(isFolderish);
         msg.setPath("/");
 
         return msg;
@@ -99,21 +109,6 @@ public class FileFactory {
         return blobs;
     }
 
-    // TODO: Make it random make it crazy :)
-    protected List<Message> createDocumentsOnServer(int amount) throws IOException {
-        List<Message> list = new LinkedList<>();
-
-        for (int i = 0; i < amount; i++) {
-            String docName = UUID.randomUUID().toString();
-            createFileDocument(docName);
-
-            DocumentModel model = mSession.getDocument(new PathRef("/" + docName));
-
-            list.add(createMessage(model));
-        }
-
-        return list;
-    }
 
     protected DocumentModel createFileDocument(String filename) {
         DocumentModel fileDoc = mSession.createDocumentModel("/", filename, "File");
@@ -123,35 +118,6 @@ public class FileFactory {
         fileDoc.setProperty("file", "content", blob);
 
         fileDoc = mSession.createDocument(fileDoc);
-        return fileDoc;
-    }
-
-    protected DocumentModel createFileDocument(Message message) {
-        DocumentModel fileDoc = mSession.createDocumentModel("/", message.getTitle(), "File");
-        fileDoc.setProperty("dublincore", "title", message.getTitle().toUpperCase());
-
-        if (message.getData() != null) {
-            BlobManager manager = Framework.getService(BlobManager.class);
-            String providerId = manager.getBlobProviders().keySet().iterator().next();
-
-            Data data = message.getData().get(0);
-            BlobManager.BlobInfo info = new BlobManager.BlobInfo();
-
-            info.key = providerId + ":" + data.getDigest();
-            info.digest = message.getData().get(0).getDigest();
-            info.mimeType = data.getMimeType();
-            info.filename = data.getFileName();
-            info.encoding = data.getEncoding();
-            info.length = data.getLength();
-
-            Blob blob = new SimpleManagedBlob(info);
-            fileDoc.setProperty("file", "content", blob);
-        }
-
-
-        TransactionHelper.startTransaction();
-        fileDoc = mSession.createDocument(fileDoc);
-        TransactionHelper.commitOrRollbackTransaction();
         return fileDoc;
     }
 

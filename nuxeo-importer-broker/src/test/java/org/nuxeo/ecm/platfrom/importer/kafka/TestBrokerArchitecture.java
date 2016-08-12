@@ -52,7 +52,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 
 @RunWith(FeaturesRunner.class)
@@ -62,7 +61,7 @@ import java.util.stream.IntStream;
         "org.nuxeo.ecm.platform.filemanager.core", //
 })
 public class TestBrokerArchitecture {
-    private static final int AMOUNT = 100;
+    private static final int AMOUNT = 4;
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static EventBroker sBroker;
@@ -73,7 +72,7 @@ public class TestBrokerArchitecture {
     private static final String TOPIC_ERR = "error";
 
     private List<Blob> mBlobs;
-    private List<Message> mMessages;
+    private List<Message> mMessages = new LinkedList<>();
 
     @Inject
     private CoreSession session;
@@ -101,27 +100,45 @@ public class TestBrokerArchitecture {
         sBroker.stop();
     }
 
+    private Set<String> hashes = Collections.synchronizedSet(new HashSet<>());
     @Before
     public void prepare() throws IOException {
         FileFactory factory = new FileFactory(session);
-        mMessages = new LinkedList<>();
         mBlobs = factory.preImportBlobs(AMOUNT);
-        operation = new ImportOperation(session.getRootDocument());
 
-        IntStream.range(0, AMOUNT).forEach(i -> {
-            Message msg = FileFactory.generateMessage();
+        mMessages = FileFactory.generateFileTree(AMOUNT);
 
+        operation = new ImportOperation(session.getRootDocument(), hashes);
+
+        mMessages.stream().filter(message -> !message.isFolderish()).forEach(message -> {
             int rand = new Random().nextInt(mBlobs.size());
             Blob blob = mBlobs.get(rand);
             try {
                 Data data = FileFactory.generateData(blob.getDigest(), blob.getLength());
-                msg.setData(Collections.singletonList(data));
-
-                mMessages.add(msg);
+                message.setData(Collections.singletonList(data));
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
+//        IntStream.range(0, AMOUNT).forEach(i -> {
+//            Message msg = FileFactory.generateMessage(i);
+//
+//
+//            if (!msg.isFolderish()) {
+//                int rand = new Random().nextInt(mBlobs.size());
+//                Blob blob = mBlobs.get(rand);
+//                try {
+//                    Data data = FileFactory.generateData(blob.getDigest(), blob.getLength());
+//                    msg.setData(Collections.singletonList(data));
+//
+//
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//
+//            mMessages.add(msg);
+//        });
     }
 
 
@@ -135,6 +152,7 @@ public class TestBrokerArchitecture {
         Assert.assertNotNull(b.getDigest());
     }
 
+    private ForkJoinPool pool = new ForkJoinPool(1);
 
     @Test
     public void testShouldSendMsgViaBroker() throws IOException, InterruptedException {
@@ -144,17 +162,32 @@ public class TestBrokerArchitecture {
         sProducerService.awaitTermination(60, TimeUnit.SECONDS);
         sConsumerService.awaitTermination(60, TimeUnit.SECONDS);
 
-
+        System.out.println("Messages: " + mMessages.size());
+        System.out.println("Operations :" + operation.count());
         pool.invoke(operation);
 
-        // TODO: Take a look deeper into ForkJoinPool
-        operation.join();
-//        Thread.sleep(2000); // Without delay ImportOperation cannot finish import
+        pool.shutdown();
+        pool.awaitTermination(60, TimeUnit.MINUTES);
 
         DocumentModelList list = session.query("SELECT * FROM Document");
-        Assert.assertEquals(AMOUNT*2, list.size());
+        System.out.println("expected");
+        mMessages.forEach(message -> System.out.println(message.getPath() +": "+ message.getTitle()));
+        System.out.println("actual");
+        traverse(list).forEach(model -> System.out.println(model.getPathAsString() +": " + model.getTitle()));
+        Assert.assertEquals(mMessages.size(), traverse(list).size());
     }
 
+    private List<DocumentModel> traverse(DocumentModelList modelList) {
+        List<DocumentModel> list = new LinkedList<>();
+        if (modelList.size() == 0) return list;
+        list.addAll(modelList);
+        modelList.forEach(model -> {
+            DocumentModelList children = session.getChildren(model.getRef());
+            list.addAll(traverse(children));
+        });
+
+        return list;
+    }
 
     private void populateProducers() throws IOException {
         Runnable[] tasks = {
@@ -188,8 +221,6 @@ public class TestBrokerArchitecture {
         };
     }
 
-    private ForkJoinPool pool = new ForkJoinPool(16);
-
     private void populateConsumers() {
         Function<ConsumerRecords<String, Message>, Void> func = records -> {
             for (ConsumerRecord<String, Message> cr : records) {
@@ -204,7 +235,6 @@ public class TestBrokerArchitecture {
                 records.forEach(x -> {
                     operation.pushMessage(x.value());
 
-//                    new Importer(session).importMessage(x.value());
                 } );
 
                 return null;
@@ -224,13 +254,13 @@ public class TestBrokerArchitecture {
             try (Consumer<String, Message> c = new Consumer<>(ServiceHelper.loadProperties("consumer.props"))) {
                 c.subscribe(Collections.singletonList(topic));
 
-                ConsumerRecords<String, Message> records = c.poll(1000);
-                func.apply(records);
+                ConsumerRecords<String, Message> records;
 
-                while (records.iterator().hasNext()) {
+                do {
+                    records = c.poll(1000);
                     func.apply(records);
-                    records = c.poll(500);
-                }
+                } while (records.iterator().hasNext());
+
             } catch (IOException e) {
                 sLog.error(e);
             }
