@@ -20,14 +20,23 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
-import org.nuxeo.ecm.core.api.*;
+import org.nuxeo.ecm.core.api.Blob;
+import org.nuxeo.ecm.core.api.Blobs;
+import org.nuxeo.ecm.core.api.CoreSession;
+import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.core.blob.BlobManager;
 import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
+import org.nuxeo.ecm.core.blob.binary.BinaryBlobProvider;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.runtime.api.Framework;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 public class FileFactory {
@@ -51,9 +60,10 @@ public class FileFactory {
             if (message.isFolderish()) {
                 for (int j = 1; j <= amount; j++) {
                     Message nestedMessage = generateMessage(i*100 + j);
-                    String pathSeparator = message.getPath().equals("/") ? "" : "/";
-                    nestedMessage.setPath(message.getPath() + pathSeparator + message.getTitle());
+
+                    nestedMessage.setPath(message.getPath() + Helper.getSeparator(message) + message.getTitle());
                     nestedMessage.setParentHash(message.getHash());
+
                     list.add(nestedMessage);
                 }
             }
@@ -61,6 +71,7 @@ public class FileFactory {
 
         return list;
     }
+
 
     private static Message generateMessage(int num) {
         int random  = new Random(num).nextInt(100);
@@ -77,7 +88,8 @@ public class FileFactory {
         return msg;
     }
 
-    static Data generateData(String digest, long length) throws IOException {
+
+    private static Data generateData(String digest, long length) throws IOException {
         BlobManager.BlobInfo info = new BlobManager.BlobInfo();
         info.digest = digest;
         info.mimeType = "plain/text";
@@ -89,24 +101,36 @@ public class FileFactory {
         return new Data(blob);
     }
 
-    protected List<Blob> preImportBlobs(int amount) throws IllegalArgumentException {
+
+    List<Data> preImportBlobs(int amount) throws IllegalArgumentException {
         if (amount < 1) {
             throw new IllegalArgumentException("amount should be greater than 0");
         }
 
-        List<Blob> blobs = new LinkedList<>();
+        List<Data> info = new LinkedList<>();
+
+        BlobManager manager = Framework.getService(BlobManager.class);
+        BinaryBlobProvider provider = (BinaryBlobProvider)manager.getBlobProvider("test");
+
         IntStream.range(0, amount)
                 .forEach( i -> {
-                    String randomName = UUID.randomUUID().toString();
-                    DocumentModel created = createFileDocument(randomName);
+                    String textData = UUID.randomUUID().toString();
 
-                    DocumentModel model = mSession.getDocument(new PathRef(created.getPathAsString()));
-                    Blob b = (Blob) model.getProperty("file", "content");
+                    Blob blob = new StringBlob(textData);
+                    blob.setFilename("blob_" + i + ".txt");
+                    blob.setMimeType("plain/text");
 
-                    blobs.add(b);
+                    try {
+                        String digest = provider.writeBlob(blob, null);
+                        Data data = generateData(digest, blob.getLength());
+                        info.add(data);
+                    } catch (IOException e) {
+                        System.out.println(e.getLocalizedMessage());
+                    }
+
                 });
 
-        return blobs;
+        return info;
     }
 
 
@@ -120,7 +144,6 @@ public class FileFactory {
         fileDoc = mSession.createDocument(fileDoc);
         return fileDoc;
     }
-
 
 
     private Blob createBlob(String data) {
