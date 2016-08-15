@@ -20,6 +20,10 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
+import org.nuxeo.ecm.core.api.CoreSession;
+import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.api.DocumentModelList;
+import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 
 import java.io.IOException;
@@ -41,8 +45,27 @@ public class Helper {
         return list;
     }
 
+
     protected static List<SourceNode> traverse(SourceNode root) throws IOException {
         List<SourceNode> list = new LinkedList<>(Collections.singletonList(root));
         return traverseList(list);
+    }
+
+    protected static List<DocumentModel> traverse(DocumentModelList modelList, CoreSession session) {
+        List<DocumentModel> list = new LinkedList<>(modelList);
+        for (DocumentModel model : modelList) {
+            DocumentModelList children = session.getChildren(model.getRef());
+            if (children != null && children.size() > 0) {
+                list.addAll(traverse(children, session));
+            }
+        }
+
+        return list;
+    }
+
+    protected static String getSeparator(Message message) {
+        return message.getPath()
+                .substring(message.getPath().length()-1)
+                .equalsIgnoreCase("/") ? "" : "/";
     }
 }

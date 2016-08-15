@@ -65,13 +65,14 @@ public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static EventBroker sBroker;
+    private ForkJoinPool mImporterPool = new ForkJoinPool(1);
     private static ExecutorService sProducerService = Executors.newFixedThreadPool(2);
     private static ExecutorService sConsumerService = Executors.newFixedThreadPool(2);
 
     private static final String TOPIC_MSG = "messenger";
     private static final String TOPIC_ERR = "error";
 
-    private List<Blob> mBlobs;
+    private List<Data> mBlobsData;
     private List<Message> mMessages = new LinkedList<>();
 
     @Inject
@@ -100,47 +101,24 @@ public class TestBrokerArchitecture {
         sBroker.stop();
     }
 
-    private Set<String> hashes = Collections.synchronizedSet(new HashSet<>());
     @Before
     public void prepare() throws IOException {
         FileFactory factory = new FileFactory(session);
-        mBlobs = factory.preImportBlobs(AMOUNT);
+        mBlobsData = factory.preImportBlobs(AMOUNT);
 
         mMessages = FileFactory.generateFileTree(AMOUNT);
 
-        operation = new ImportOperation(session.getRootDocument(), hashes);
+        operation = new ImportOperation(
+                session.getRootDocument(),
+                Collections.synchronizedSet(new HashSet<>())
+        );
 
         mMessages.stream().filter(message -> !message.isFolderish()).forEach(message -> {
-            int rand = new Random().nextInt(mBlobs.size());
-            Blob blob = mBlobs.get(rand);
-            try {
-                Data data = FileFactory.generateData(blob.getDigest(), blob.getLength());
-                message.setData(Collections.singletonList(data));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            int rand = new Random().nextInt(mBlobsData.size());
+            Data data = mBlobsData.get(rand);
+            message.setData(Collections.singletonList(data));
         });
-//        IntStream.range(0, AMOUNT).forEach(i -> {
-//            Message msg = FileFactory.generateMessage(i);
-//
-//
-//            if (!msg.isFolderish()) {
-//                int rand = new Random().nextInt(mBlobs.size());
-//                Blob blob = mBlobs.get(rand);
-//                try {
-//                    Data data = FileFactory.generateData(blob.getDigest(), blob.getLength());
-//                    msg.setData(Collections.singletonList(data));
-//
-//
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//
-//            mMessages.add(msg);
-//        });
     }
-
 
 
     @Test
@@ -152,7 +130,6 @@ public class TestBrokerArchitecture {
         Assert.assertNotNull(b.getDigest());
     }
 
-    private ForkJoinPool pool = new ForkJoinPool(1);
 
     @Test
     public void testShouldSendMsgViaBroker() throws IOException, InterruptedException {
@@ -164,30 +141,18 @@ public class TestBrokerArchitecture {
 
         System.out.println("Messages: " + mMessages.size());
         System.out.println("Operations :" + operation.count());
-        pool.invoke(operation);
+        mImporterPool.invoke(operation);
 
-        pool.shutdown();
-        pool.awaitTermination(60, TimeUnit.MINUTES);
+        mImporterPool.shutdown();
+        mImporterPool.awaitTermination(60, TimeUnit.MINUTES);
 
-        DocumentModelList list = session.query("SELECT * FROM Document");
-        System.out.println("expected");
-        mMessages.forEach(message -> System.out.println(message.getPath() +": "+ message.getTitle()));
-        System.out.println("actual");
-        traverse(list).forEach(model -> System.out.println(model.getPathAsString() +": " + model.getTitle()));
-        Assert.assertEquals(mMessages.size(), traverse(list).size());
+        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
+        List<DocumentModel> traversedList = Helper.traverse(list, session);
+
+
+        Assert.assertEquals(mMessages.size(), traversedList.size());
     }
 
-    private List<DocumentModel> traverse(DocumentModelList modelList) {
-        List<DocumentModel> list = new LinkedList<>();
-        if (modelList.size() == 0) return list;
-        list.addAll(modelList);
-        modelList.forEach(model -> {
-            DocumentModelList children = session.getChildren(model.getRef());
-            list.addAll(traverse(children));
-        });
-
-        return list;
-    }
 
     private void populateProducers() throws IOException {
         Runnable[] tasks = {
