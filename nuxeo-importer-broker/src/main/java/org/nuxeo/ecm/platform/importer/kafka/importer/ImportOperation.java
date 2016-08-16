@@ -41,19 +41,9 @@ public class ImportOperation extends RecursiveAction {
 
     @Override
     protected void compute() {
-        if (mMessages.size() == 0) return;
-
         Message message = findMessage();
 
-        if (message == null) return;
-
-        mMessages.remove(message);
-
-        if (mMessages.size() > 0) {
-            ImportOperation operation = new ImportOperation(mModel, hashes);
-            operation.pushAll(mMessages);
-            operation.fork();
-        }
+        if (mMessages.size() == 0 || message == null) return;
 
         if (TransactionHelper.isTransactionActive()) {
             process(message);
@@ -63,11 +53,18 @@ public class ImportOperation extends RecursiveAction {
             TransactionHelper.commitOrRollbackTransaction();
         }
 
+        mMessages.remove(message);
+
+        ImportOperation operation = new ImportOperation(mModel, hashes);
+        operation.pushAll(mMessages);
+        operation.fork();
+
     }
 
     private Message findMessage() {
         for (Message message : mMessages) {
-            if (message.getParentHash() == null || hashes.contains(message.getParentHash())) {
+            if (message.getParentHash() == null ||
+                    (message.getParentHash() != null && hashes.contains(message.getParentHash()))) {
                 return message;
             }
         }

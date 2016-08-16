@@ -44,6 +44,7 @@ public class Importer {
 
 
     public void importMessage(Message message) {
+        sLogger.info("Importing: " + message);
         DocumentModel model = mCoreSession.createDocumentModel(message.getPath(), message.getTitle(), message.getType());
         model.setProperty("dublincore", "title", model.getTitle());
 
@@ -53,19 +54,21 @@ public class Importer {
 
             Data data = message.getData().get(0);
 
-            BlobManager.BlobInfo info = new BlobManager.BlobInfo();
+            if (data != null) {
+                BlobManager.BlobInfo info = new BlobManager.BlobInfo();
 
-            info.key = provider + ":" + data.getDigest();
-            info.digest = message.getData().get(0).getDigest();
-            info.mimeType = data.getMimeType();
-            info.filename = data.getFileName();
-            info.encoding = data.getEncoding();
-            info.length = data.getLength();
+                info.key = provider + ":" + data.getDigest();
+                info.digest = message.getData().get(0).getDigest();
+                info.mimeType = data.getMimeType();
+                info.filename = data.getFileName();
+                info.encoding = data.getEncoding();
+                info.length = data.getLength();
 
-            Blob blob = new SimpleManagedBlob(info);
-            model.setProperty("file", "content", blob);
+                Blob blob = new SimpleManagedBlob(info);
+                model.setProperty("file", "content", blob);
+            }
+
         }
-
 
         mCoreSession.createDocument(model);
     }
