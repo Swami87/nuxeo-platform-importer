@@ -130,11 +130,12 @@ public class Message {
     @Override
     public String toString() {
         return "Message{" +
-                "mTitle='" + mTitle + '\'' +
-                ", mPath='" + mPath + '\'' +
-                ", isFolderish=" + isFolderish +
-                ", mProperties=" + mProperties +
-                ", mData=" + mData +
+                "title='" + mTitle + '\'' +
+                ", path='" + mPath + '\'' +
+                ", type='" + mType + '\'' +
+                ", folderish=" + isFolderish +
+                ", properties=" + mProperties +
+                ", data=" + mData +
                 '}';
     }
 

@@ -66,7 +66,7 @@ public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static EventBroker sBroker;
-    private ForkJoinPool mImporterPool = new ForkJoinPool(1);
+    private ForkJoinPool mImporterPool = ForkJoinPool.commonPool();
     private static ExecutorService sProducerService = Executors.newFixedThreadPool(2);
     private static ExecutorService sConsumerService = Executors.newFixedThreadPool(2);
 
