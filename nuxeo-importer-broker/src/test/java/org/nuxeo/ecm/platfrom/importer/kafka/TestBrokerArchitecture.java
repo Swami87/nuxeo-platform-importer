@@ -52,6 +52,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 @RunWith(FeaturesRunner.class)
@@ -61,7 +62,7 @@ import java.util.function.Function;
         "org.nuxeo.ecm.platform.filemanager.core", //
 })
 public class TestBrokerArchitecture {
-    private static final int AMOUNT = 4;
+    private static final int AMOUNT = 10;
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static EventBroker sBroker;
@@ -122,16 +123,6 @@ public class TestBrokerArchitecture {
 
 
     @Test
-    public void testShouldReturnDigest() throws IOException {
-        String filename = "testDoc";
-        new FileFactory(session).createFileDocument(filename);
-        DocumentModel model = session.getDocument(new PathRef("/" + filename));
-        Blob b = (Blob) model.getProperty("file", "content");
-        Assert.assertNotNull(b.getDigest());
-    }
-
-
-    @Test
     public void testShouldSendMsgViaBroker() throws IOException, InterruptedException {
         populateProducers();
         populateConsumers();
@@ -139,18 +130,26 @@ public class TestBrokerArchitecture {
         sProducerService.awaitTermination(60, TimeUnit.SECONDS);
         sConsumerService.awaitTermination(60, TimeUnit.SECONDS);
 
-        System.out.println("Messages: " + mMessages.size());
-        System.out.println("Operations :" + operation.count());
-        mImporterPool.invoke(operation);
+        Assert.assertEquals(mMessages.size(), operation.count());
 
+        mImporterPool.invoke(operation);
         mImporterPool.shutdown();
         mImporterPool.awaitTermination(60, TimeUnit.MINUTES);
 
         DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
         List<DocumentModel> traversedList = Helper.traverse(list, session);
 
+        List<String> names = mMessages.stream()
+                .map(message -> message.getPath() + Helper.getSeparator(message) + message.getTitle())
+                .sorted()
+                .collect(Collectors.toList());
 
-        Assert.assertEquals(mMessages.size(), traversedList.size());
+        List<String> models = traversedList.stream()
+                .map(DocumentModel::getPathAsString)
+                .sorted()
+                .collect(Collectors.toList());
+
+        Assert.assertArrayEquals(names.toArray(), models.toArray());
     }
 
 
@@ -196,12 +195,7 @@ public class TestBrokerArchitecture {
 
         Runnable[] tasks = {
             createConsumer(TOPIC_MSG, records -> {
-
-                records.forEach(x -> {
-                    operation.pushMessage(x.value());
-
-                } );
-
+                records.forEach(x -> operation.pushMessage(x.value()));
                 return null;
             }),
             createConsumer(TOPIC_ERR, func),
@@ -220,7 +214,6 @@ public class TestBrokerArchitecture {
                 c.subscribe(Collections.singletonList(topic));
 
                 ConsumerRecords<String, Message> records;
-
                 do {
                     records = c.poll(1000);
                     func.apply(records);

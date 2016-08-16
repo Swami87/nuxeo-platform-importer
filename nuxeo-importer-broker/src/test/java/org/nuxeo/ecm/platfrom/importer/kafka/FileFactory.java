@@ -53,25 +53,33 @@ public class FileFactory {
         }
 
         List<Message> list = new LinkedList<>();
-
-        for (int i = 1; i <= amount; i++) {
-            Message message = generateMessage(i);
-            list.add(message);
-            if (message.isFolderish()) {
-                for (int j = 1; j <= amount; j++) {
-                    Message nestedMessage = generateMessage(i*100 + j);
-
-                    nestedMessage.setPath(message.getPath() + Helper.getSeparator(message) + message.getTitle());
-                    nestedMessage.setParentHash(message.getHash());
-
-                    list.add(nestedMessage);
-                }
-            }
-        }
+        Message message = generateMessage(1);
+        list.add(message);
+        list.addAll(generateTree(message, amount));
 
         return list;
     }
 
+
+    private static List<Message> generateTree(Message message, Integer depth) {
+        if (message == null || depth < 1) return new LinkedList<>();
+
+        List<Message> list = new LinkedList<>();
+        int rand = new Random().nextInt(depth);
+
+        IntStream.range(0, rand).forEach(i -> {
+            if (message.isFolderish()) {
+                Message msg = generateMessage(depth * 100  + i);
+                msg.setPath(message.getPath() + Helper.getSeparator(message) + message.getTitle());
+                msg.setParentHash(message.getHash());
+                list.add(msg);
+                list.addAll(generateTree(msg, depth - 1));
+            }
+        });
+
+
+        return list;
+    }
 
     private static Message generateMessage(int num) {
         int random  = new Random(num).nextInt(100);
@@ -134,7 +142,7 @@ public class FileFactory {
     }
 
 
-    protected DocumentModel createFileDocument(String filename) {
+    DocumentModel createFileDocument(String filename) {
         DocumentModel fileDoc = mSession.createDocumentModel("/", filename, "File");
         fileDoc.setProperty("dublincore", "title", filename.toUpperCase());
 
