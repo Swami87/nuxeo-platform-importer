@@ -58,7 +58,6 @@ public class ImportOperation extends RecursiveAction {
         ImportOperation operation = new ImportOperation(mModel, hashes);
         operation.pushAll(mMessages);
         operation.fork();
-
     }
 
     private Message findMessage() {
