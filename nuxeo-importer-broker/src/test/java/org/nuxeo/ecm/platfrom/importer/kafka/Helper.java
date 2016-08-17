@@ -63,7 +63,11 @@ public class Helper {
         return list;
     }
 
-    protected static String getSeparator(Message message) {
+    protected static String getFullPath(Message message) {
+        return message.getPath() + getSeparator(message) + message.getTitle();
+    }
+
+    private static String getSeparator(Message message) {
         return message.getPath()
                 .substring(message.getPath().length()-1)
                 .equalsIgnoreCase("/") ? "" : "/";

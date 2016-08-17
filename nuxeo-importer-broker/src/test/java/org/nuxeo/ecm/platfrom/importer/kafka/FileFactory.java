@@ -44,7 +44,7 @@ public class FileFactory {
         }
 
         List<Message> list = new ArrayList<>();
-        Message message = generateMessage(new Random().nextInt(100));
+        Message message = generateMessage(1);
         list.add(message);
         list.addAll(generateTree(message, amount));
 
@@ -57,11 +57,11 @@ public class FileFactory {
 
         List<Message> list = new ArrayList<>();
 
-        int rand = new Random().nextInt(depth);
+        int rand = new Random().nextInt(depth) + 1;
         IntStream.range(0, rand).forEach(i -> {
             if (message.isFolderish()) {
                 Message msg = generateMessage(depth * 100  + i);
-                msg.setPath(message.getPath() + Helper.getSeparator(message) + message.getTitle());
+                msg.setPath(Helper.getFullPath(message));
                 msg.setParentHash(message.getHash());
                 list.add(msg);
                 list.addAll(generateTree(msg, depth - 1));
