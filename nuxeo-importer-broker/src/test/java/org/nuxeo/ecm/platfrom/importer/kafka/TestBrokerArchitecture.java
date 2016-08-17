@@ -142,7 +142,7 @@ public class TestBrokerArchitecture {
         List<DocumentModel> traversedList = Helper.traverse(list, session);
 
         List<String> names = mMessages.stream()
-                .map(message -> message.getPath() + Helper.getSeparator(message) + message.getTitle())
+                .map(Helper::getFullPath)
                 .sorted()
                 .collect(Collectors.toList());
 
