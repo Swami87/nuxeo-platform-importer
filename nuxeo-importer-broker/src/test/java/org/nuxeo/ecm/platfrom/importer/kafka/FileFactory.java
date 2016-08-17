@@ -21,9 +21,6 @@
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
 import org.nuxeo.ecm.core.api.Blob;
-import org.nuxeo.ecm.core.api.Blobs;
-import org.nuxeo.ecm.core.api.CoreSession;
-import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.core.blob.BlobManager;
 import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
@@ -33,7 +30,7 @@ import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.api.Framework;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -41,19 +38,13 @@ import java.util.stream.IntStream;
 
 public class FileFactory {
 
-    private CoreSession mSession;
-
-    FileFactory(CoreSession session) {
-        this.mSession = session;
-    }
-
-    static List<Message> generateFileTree(int amount) {
+    protected static List<Message> generateFileTree(int amount) {
         if (amount < 1) {
             throw new IllegalArgumentException("amount should be greater than 0");
         }
 
-        List<Message> list = new LinkedList<>();
-        Message message = generateMessage(1);
+        List<Message> list = new ArrayList<>();
+        Message message = generateMessage(new Random().nextInt(100));
         list.add(message);
         list.addAll(generateTree(message, amount));
 
@@ -62,11 +53,11 @@ public class FileFactory {
 
 
     private static List<Message> generateTree(Message message, Integer depth) {
-        if (message == null || depth < 1) return new LinkedList<>();
+        if (message == null || depth < 1) return new ArrayList<>();
 
-        List<Message> list = new LinkedList<>();
+        List<Message> list = new ArrayList<>();
+
         int rand = new Random().nextInt(depth);
-
         IntStream.range(0, rand).forEach(i -> {
             if (message.isFolderish()) {
                 Message msg = generateMessage(depth * 100  + i);
@@ -80,6 +71,7 @@ public class FileFactory {
 
         return list;
     }
+
 
     private static Message generateMessage(int num) {
         int random  = new Random(num).nextInt(100);
@@ -110,12 +102,12 @@ public class FileFactory {
     }
 
 
-    List<Data> preImportBlobs(int amount) throws IllegalArgumentException {
+    protected List<Data> preImportBlobs(int amount) throws IllegalArgumentException {
         if (amount < 1) {
             throw new IllegalArgumentException("amount should be greater than 0");
         }
 
-        List<Data> info = new LinkedList<>();
+        List<Data> info = new ArrayList<>(amount);
 
         BlobManager manager = Framework.getService(BlobManager.class);
         BinaryBlobProvider provider = (BinaryBlobProvider)manager.getBlobProvider("test");
@@ -135,30 +127,8 @@ public class FileFactory {
                     } catch (IOException e) {
                         System.out.println(e.getLocalizedMessage());
                     }
-
                 });
 
         return info;
-    }
-
-
-    DocumentModel createFileDocument(String filename) {
-        DocumentModel fileDoc = mSession.createDocumentModel("/", filename, "File");
-        fileDoc.setProperty("dublincore", "title", filename.toUpperCase());
-
-        Blob blob = createBlob(filename);
-        fileDoc.setProperty("file", "content", blob);
-
-        fileDoc = mSession.createDocument(fileDoc);
-        return fileDoc;
-    }
-
-
-    private Blob createBlob(String data) {
-        Blob blob = Blobs.createBlob(data.getBytes());
-        blob.setFilename(data + ".txt");
-        blob.setMimeType("plain/text");
-
-        return blob;
     }
 }

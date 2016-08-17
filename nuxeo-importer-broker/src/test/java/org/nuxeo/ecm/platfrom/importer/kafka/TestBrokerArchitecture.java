@@ -27,7 +27,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.*;
 import org.junit.runner.RunWith;
-import org.nuxeo.ecm.core.api.*;
+import org.nuxeo.ecm.core.api.CoreSession;
+import org.nuxeo.ecm.core.api.DocumentModel;
+import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.core.test.CoreFeature;
 import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
@@ -74,7 +76,7 @@ public class TestBrokerArchitecture {
     private static final String TOPIC_ERR = "error";
 
     private List<Data> mBlobsData;
-    private List<Message> mMessages = new LinkedList<>();
+    private List<Message> mMessages = new ArrayList<>();
 
     @Inject
     private CoreSession session;
@@ -104,7 +106,7 @@ public class TestBrokerArchitecture {
 
     @Before
     public void prepare() throws IOException {
-        FileFactory factory = new FileFactory(session);
+        FileFactory factory = new FileFactory();
         mBlobsData = factory.preImportBlobs(AMOUNT);
 
         mMessages = FileFactory.generateFileTree(AMOUNT);
