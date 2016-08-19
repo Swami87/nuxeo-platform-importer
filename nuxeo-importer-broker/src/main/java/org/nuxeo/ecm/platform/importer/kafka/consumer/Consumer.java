@@ -21,7 +21,6 @@
 package org.nuxeo.ecm.platform.importer.kafka.consumer;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 
 import java.util.Properties;
 
@@ -30,9 +29,5 @@ public class Consumer<K, V> extends KafkaConsumer<K, V> {
 
     public Consumer(Properties properties) {
         super(properties);
-    }
-
-    public void handleImport(Message msg) {
-
     }
 }
