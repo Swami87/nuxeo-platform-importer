@@ -35,7 +35,7 @@ import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
-import org.nuxeo.ecm.platform.importer.kafka.importer.ImportOperation;
+import org.nuxeo.ecm.platform.importer.kafka.importer.ImportManager;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
@@ -81,8 +81,6 @@ public class TestBrokerArchitecture {
     @Inject
     private CoreSession session;
 
-    private ImportOperation operation;
-
     @BeforeClass
     public static void setUpClass() throws Exception {
         RandomTextSourceNode.CACHE_CHILDREN = true;
@@ -111,11 +109,6 @@ public class TestBrokerArchitecture {
 
         mMessages = FileFactory.generateFileTree(AMOUNT);
 
-        operation = new ImportOperation(
-                session.getRootDocument(),
-                Collections.synchronizedSet(new HashSet<>())
-        );
-
         mMessages.stream().filter(message -> !message.isFolderish()).forEach(message -> {
             int rand = new Random().nextInt(mBlobsData.size());
             Data data = mBlobsData.get(rand);
@@ -125,33 +118,17 @@ public class TestBrokerArchitecture {
 
 
     @Test
-    public void testShouldSendMsgViaBroker() throws IOException, InterruptedException {
+    public void testShouldImportViaManager() throws IOException, InterruptedException {
         populateProducers();
-        populateConsumers();
+        ImportManager manager = new ImportManager(session, 4);
+        manager.initConsumer(TOPIC_MSG);
+
+        manager.consume();
 
         sProducerService.awaitTermination(60, TimeUnit.SECONDS);
-        sConsumerService.awaitTermination(60, TimeUnit.SECONDS);
+        manager.waitUntilStop();
 
-        Assert.assertEquals(mMessages.size(), operation.count());
-
-        mImporterPool.invoke(operation);
-        mImporterPool.shutdown();
-        mImporterPool.awaitTermination(60, TimeUnit.MINUTES);
-
-        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
-        List<DocumentModel> traversedList = Helper.traverse(list, session);
-
-        List<String> names = mMessages.stream()
-                .map(Helper::getFullPath)
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<String> models = traversedList.stream()
-                .map(DocumentModel::getPathAsString)
-                .sorted()
-                .collect(Collectors.toList());
-
-        Assert.assertArrayEquals(names.toArray(), models.toArray());
+        check();
     }
 
 
@@ -167,6 +144,22 @@ public class TestBrokerArchitecture {
         sProducerService.shutdown();
     }
 
+    private void check() {
+        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
+        List<DocumentModel> traversedList = Helper.traverse(list, session);
+
+        List<String> names = mMessages.stream()
+                .map(Helper::getFullPath)
+                .sorted()
+                .collect(Collectors.toList());
+
+        List<String> models = traversedList.stream()
+                .map(DocumentModel::getPathAsString)
+                .sorted()
+                .collect(Collectors.toList());
+
+        Assert.assertArrayEquals(names.toArray(), models.toArray());
+    }
 
     private Runnable createProducer(String topic, String key) throws IOException {
         return () -> {
@@ -197,7 +190,6 @@ public class TestBrokerArchitecture {
 
         Runnable[] tasks = {
             createConsumer(TOPIC_MSG, records -> {
-                records.forEach(x -> operation.pushMessage(x.value()));
                 return null;
             }),
             createConsumer(TOPIC_ERR, func),

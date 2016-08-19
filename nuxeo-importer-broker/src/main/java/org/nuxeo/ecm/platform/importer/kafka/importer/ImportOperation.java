@@ -20,78 +20,54 @@
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 
-import org.nuxeo.ecm.core.api.DocumentModel;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentNotFoundException;
+import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
-import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 public class ImportOperation extends RecursiveAction {
 
-    private List<Message> mMessages = Collections.synchronizedList(new LinkedList<>());
-    private Set<String> hashes;
-    private DocumentModel mModel;
+    private CoreSession mSession;
+    private Consumer<String, Message> mConsumer;
+    private ConsumerRecords<String, Message> mRecords;
 
-    public ImportOperation(DocumentModel model, Set<String> set) {
-        this.mModel = model;
-        this.hashes = set;
+    public ImportOperation(CoreSession session,
+                                   Consumer<String, Message> consumer,
+                                   ConsumerRecords<String, Message> records) {
+        mSession = session;
+        mConsumer = consumer;
+        mRecords = records;
     }
 
     @Override
     protected void compute() {
-        Message message = findMessage();
-
-        if (mMessages.size() == 0 || message == null) return;
-
-        if (TransactionHelper.isTransactionActive()) {
-            process(message);
-        } else {
-            TransactionHelper.startTransaction();
-            process(message);
-            TransactionHelper.commitOrRollbackTransaction();
+        mRecords = mConsumer.poll(1000);
+        if (mRecords.iterator().hasNext()) {
+            new ImportOperation(mSession, mConsumer, mRecords).fork();
         }
-
-        mMessages.remove(message);
-
-        ImportOperation operation = new ImportOperation(mModel, hashes);
-        operation.pushAll(mMessages);
-        operation.fork();
+        for (ConsumerRecord<String, Message> record : mRecords) {
+            importMessage(record.value());
+        }
     }
 
-    private Message findMessage() {
-        for (Message message : mMessages) {
-            if (message.getParentHash() == null ||
-                    (message.getParentHash() != null && hashes.contains(message.getParentHash()))) {
-                return message;
-            }
-        }
-
-        return null;
-    }
-
-    private void process(Message message) {
+    private void importMessage(Message message) {
         try {
-            new Importer(mModel.getCoreSession()).importMessage(message);
-            hashes.add(message.getHash());
-//            System.out.println("Success: " + message.getPath() + ", folder ?: " + message.isFolderish());
+
+            if (TransactionHelper.isTransactionActive()) {
+                new Importer(mSession).importMessage(message);
+            } else {
+                TransactionHelper.startTransaction();
+                new Importer(mSession).importMessage(message);
+                TransactionHelper.commitOrRollbackTransaction();
+            }
         } catch (DocumentNotFoundException e) {
-            System.out.println("Couldn't find the " + e.getLocalizedMessage());
+            e.printStackTrace();
         }
-
-    }
-
-    public void pushMessage(Message message) {
-        mMessages.add(message);
-    }
-
-    private void pushAll(Collection<Message> messages) {
-        mMessages.addAll(messages);
-    }
-
-    public int count() {
-        return mMessages.size();
     }
 
 }
