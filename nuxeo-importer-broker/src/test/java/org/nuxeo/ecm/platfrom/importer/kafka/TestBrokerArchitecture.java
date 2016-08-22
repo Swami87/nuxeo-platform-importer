@@ -45,6 +45,7 @@ import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
+import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import javax.inject.Inject;
 import java.io.IOException;
@@ -52,7 +53,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -116,20 +116,16 @@ public class TestBrokerArchitecture {
         });
     }
 
-
     @Test
-    public void testShouldImportViaManager() throws IOException, InterruptedException {
+    public void testShouldImportViaManager() throws Exception {
         populateProducers();
-        ImportManager manager = new ImportManager(session, 4);
-        manager.initConsumer(TOPIC_MSG);
 
-        manager.consume();
-
-        sProducerService.awaitTermination(60, TimeUnit.SECONDS);
-        manager.waitUntilStop();
+        ImportManager manager = new ImportManager(session, 1);
+        manager.start(1, TOPIC_MSG);
 
         check();
     }
+
 
 
     private void populateProducers() throws IOException {
@@ -145,6 +141,7 @@ public class TestBrokerArchitecture {
     }
 
     private void check() {
+        if (!TransactionHelper.isTransactionActive()) TransactionHelper.startTransaction();
         DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
         List<DocumentModel> traversedList = Helper.traverse(list, session);
 
@@ -159,6 +156,7 @@ public class TestBrokerArchitecture {
                 .collect(Collectors.toList());
 
         Assert.assertArrayEquals(names.toArray(), models.toArray());
+        TransactionHelper.commitOrRollbackTransaction();
     }
 
     private Runnable createProducer(String topic, String key) throws IOException {
