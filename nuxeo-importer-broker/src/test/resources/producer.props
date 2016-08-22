@@ -1,0 +1,8 @@
+bootstrap.servers=127.0.0.1:9092
+acks=all
+retries=0
+batch.size=4194304
+linger.ms=0
+key.serializer=org.apache.kafka.common.serialization.StringSerializer
+value.serializer=org.nuxeo.ecm.platform.importer.kafka.serializer.MessageSerializer
+max.block.ms=10000
