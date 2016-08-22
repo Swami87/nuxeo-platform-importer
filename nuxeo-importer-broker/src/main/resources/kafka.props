@@ -1,8 +1,0 @@
-broker.id=0
-log.dirs=./data/kafka/logs
-host.name=127.0.0.1
-port=9092
-num.partitions=4
-default.replication.factor=2
-zookeeper.connect=127.0.0.1:2181
-zookeeper.connection.timeout.ms=3000
