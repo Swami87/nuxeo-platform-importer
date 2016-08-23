@@ -20,23 +20,66 @@ package org.nuxeo.ecm.platform.importer.kafka.operation;/*
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentNotFoundException;
+import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
-public class ImportOperation implements Operation {
+import java.io.IOException;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.concurrent.RecursiveAction;
+
+public class ImportOperation extends RecursiveAction {
 
     private static final Log log = LogFactory.getLog(ImportOperation.class);
 
     private CoreSession mCoreSession;
+    private Collection<String> mTopics;
+    private Consumer<String, Message> mConsumer;
 
-    public ImportOperation(CoreSession coreSession) {
+    public ImportOperation(CoreSession coreSession, Collection<String> topics) {
         mCoreSession = coreSession;
+        mTopics = topics;
     }
 
     @Override
-    public boolean process(Message message) {
+    protected void compute() {
+        try {
+            mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
+        } catch (IOException e) {
+            log.error(e);
+        }
+        mConsumer.subscribe(mTopics);
+
+        ImportOperation importOperation = new ImportOperation(mCoreSession, mConsumer.listTopics().keySet());
+        Set<ConsumerRecord<String, Message>> recoverySet = new LinkedHashSet<>();
+
+        ConsumerRecords<String, Message> records = mConsumer.poll(1000);
+
+        if (records.iterator().hasNext()) {
+            importOperation.fork();
+        }
+
+        for (ConsumerRecord<String, Message> record : records) {
+            if (!process(record.value()))  {
+                recoverySet.add(record);
+            }
+        }
+
+        if (recoverySet.size() > 0) {
+            RecoveryOperation operation = new RecoveryOperation(recoverySet);
+            operation.fork();
+        }
+    }
+
+
+    private boolean process(Message message) {
         try {
             new Importer(mCoreSession).importMessage(message);
             return true;

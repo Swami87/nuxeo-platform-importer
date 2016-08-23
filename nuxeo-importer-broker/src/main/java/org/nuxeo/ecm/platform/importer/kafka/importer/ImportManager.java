@@ -20,15 +20,14 @@
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.core.api.CoreSession;
-import org.nuxeo.ecm.platform.importer.kafka.consumer.ConsumerFactory;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.operation.DefaultImportOperation;
 import org.nuxeo.ecm.platform.importer.kafka.operation.ImportOperation;
-import org.nuxeo.ecm.platform.importer.kafka.operation.Operation;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ForkJoinPool;
@@ -36,7 +35,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class ImportManager {
+
+    private static final Log log = LogFactory.getLog(ImportManager.class);
+
     private BlockingQueue<Message> mQueue = new LinkedBlockingQueue<>();
+
+    // TODO: cannot use recursive tasks, since amount of consumers exceeds expectations. => use a thread pool instead
     private ForkJoinPool mPool;
     private CoreSession mSession;
     private Boolean started = false;
@@ -52,23 +56,10 @@ public class ImportManager {
         }
         started = true;
 
-        Operation operation = new ImportOperation(mSession);
-
-        ConsumerFactory.createConsumers(consumers, topics)
-                .stream()
-                .parallel()
-                .forEach(c -> {
-                    ConsumerRecords<String, Message> records;
-                    do {
-                        records = c.poll(1000);
-                        for (ConsumerRecord<String, Message> record : records) {
-                            if (!operation.process(record.value())) {
-                                mQueue.add(record.value());
-                            }
-                        }
-                    } while (records.iterator().hasNext());
-                });
-
+        for (int i = 0; i < consumers; i++) {
+            ImportOperation operation = new ImportOperation(mSession, Arrays.asList(topics));
+            mPool.invoke(operation);
+        }
     }
 
 
