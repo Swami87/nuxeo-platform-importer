@@ -20,6 +20,7 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
+import com.google.common.base.Stopwatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -53,6 +54,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -92,7 +94,7 @@ public class TestBrokerArchitecture {
         sBroker = new EventBroker(props);
         sBroker.start();
 
-        sBroker.createTopic(TOPIC_MSG, 4, 1);
+        sBroker.createTopic(TOPIC_MSG, 1, 1);
         sBroker.createTopic(TOPIC_ERR, 4, 1);
     }
 
@@ -109,19 +111,32 @@ public class TestBrokerArchitecture {
 
         mMessages = FileFactory.generateFileTree(AMOUNT);
 
-        mMessages.stream().filter(message -> !message.isFolderish()).forEach(message -> {
-            int rand = new Random().nextInt(mBlobsData.size());
-            Data data = mBlobsData.get(rand);
-            message.setData(Collections.singletonList(data));
-        });
+        mMessages.stream()
+                .filter(message -> !message.isFolderish())
+                .forEach(message -> {
+                    int rand = new Random().nextInt(mBlobsData.size());
+                    Data data = mBlobsData.get(rand);
+                    message.setData(Collections.singletonList(data));
+                });
     }
 
     @Test
     public void testShouldImportViaManager() throws Exception {
+        Stopwatch stopwatch = Stopwatch.createStarted();
         populateProducers();
 
         ImportManager manager = new ImportManager(session, 1);
         manager.start(1, TOPIC_MSG);
+        manager.waitUntilStop();
+
+        stopwatch.stop();
+        System.out.println(
+                String.format("Import of %d Documents finished in %d:%d.%d",
+                        mMessages.size(),
+                        stopwatch.elapsed(TimeUnit.MINUTES),
+                        stopwatch.elapsed(TimeUnit.SECONDS),
+                        stopwatch.elapsed(TimeUnit.MILLISECONDS))
+        );
 
         check();
     }
@@ -131,32 +146,12 @@ public class TestBrokerArchitecture {
     private void populateProducers() throws IOException {
         Runnable[] tasks = {
             createProducer(TOPIC_MSG, "Msg"),
-            createProducer(TOPIC_ERR, "Err")
         };
 
         for (Runnable r : tasks) {
             sProducerService.execute(r);
         }
         sProducerService.shutdown();
-    }
-
-    private void check() {
-        if (!TransactionHelper.isTransactionActive()) TransactionHelper.startTransaction();
-        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
-        List<DocumentModel> traversedList = Helper.traverse(list, session);
-
-        List<String> names = mMessages.stream()
-                .map(Helper::getFullPath)
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<String> models = traversedList.stream()
-                .map(DocumentModel::getPathAsString)
-                .sorted()
-                .collect(Collectors.toList());
-
-        Assert.assertArrayEquals(names.toArray(), models.toArray());
-        TransactionHelper.commitOrRollbackTransaction();
     }
 
     private Runnable createProducer(String topic, String key) throws IOException {
@@ -177,6 +172,28 @@ public class TestBrokerArchitecture {
             }
         };
     }
+
+    private void check() {
+        System.out.println("Messages sent: " + mMessages.size());
+
+        if (!TransactionHelper.isTransactionActive()) TransactionHelper.startTransaction();
+        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
+        List<DocumentModel> traversedList = Helper.traverse(list, session);
+
+        List<String> names = mMessages.stream()
+                .map(Helper::getFullPath)
+                .sorted()
+                .collect(Collectors.toList());
+
+        List<String> models = traversedList.stream()
+                .map(DocumentModel::getPathAsString)
+                .sorted()
+                .collect(Collectors.toList());
+
+        Assert.assertArrayEquals(names.toArray(), models.toArray());
+        TransactionHelper.commitOrRollbackTransaction();
+    }
+
 
     private void populateConsumers() {
         Function<ConsumerRecords<String, Message>, Void> func = records -> {
