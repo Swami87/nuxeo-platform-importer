@@ -20,6 +20,7 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.core.blob.BlobManager;
@@ -27,53 +28,59 @@ import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.core.blob.binary.BinaryBlobProvider;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
+import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.runtime.api.Framework;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 public class FileFactory {
 
-    protected static List<Message> generateFileTree(int amount) {
-        if (amount < 1) {
-            throw new IllegalArgumentException("amount should be greater than 0");
+    public static AtomicInteger counter = new AtomicInteger(0);
+
+    public static void generateTree(List<Data> data, String topic, Message message, Integer depth) {
+        if (message == null || depth < 1) return;
+
+        try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))) {
+            IntStream.range(0, depth)
+//                    .parallel()
+                    .forEach(i -> {
+                        message.setFolderish(true);
+                        message.setType("Folder");
+                        producer.send(new ProducerRecord<>(topic, "Msg", message));
+                        producer.flush();
+                        counter.incrementAndGet();
+                        send(producer, topic, message, data, depth);
+                    });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void send(Producer<String, Message> producer, String topic, Message message, List<Data> data, Integer depth) {
+        if (depth <= 0) return;
+        counter.incrementAndGet();
+        Message msg = generateMessage(depth * 100  + (depth % 100));
+        msg.setPath(Helper.getFullPath(message));
+        msg.setParentHash(message.getHash());
+
+        if (!msg.isFolderish()) {
+            int rand = new Random().nextInt(data.size());
+            Data bin = data.get(rand);
+            message.setData(Collections.singletonList(bin));
+        } else {
+            send(producer, topic, msg, data, depth-1);
         }
 
-        List<Message> list = new ArrayList<>();
-        Message message = generateMessage(1);
-        list.add(message);
-        list.addAll(generateTree(message, amount));
-
-        return list;
+        producer.send(new ProducerRecord<>(topic, "Key", msg));
+        producer.flush();
     }
 
 
-    private static List<Message> generateTree(Message message, Integer depth) {
-        if (message == null || depth < 1) return new ArrayList<>();
-
-        List<Message> list = new ArrayList<>();
-
-        int rand = new Random().nextInt(depth) + 1;
-        IntStream.range(0, rand).forEach(i -> {
-            if (message.isFolderish()) {
-                Message msg = generateMessage(depth * 100  + i);
-                msg.setPath(Helper.getFullPath(message));
-                msg.setParentHash(message.getHash());
-                list.add(msg);
-                list.addAll(generateTree(msg, depth - 1));
-            }
-        });
-
-
-        return list;
-    }
-
-
-    private static Message generateMessage(int num) {
+    protected static Message generateMessage(int num) {
         int random  = new Random(num).nextInt(100);
         boolean isFolderish = random > 50;
         String type = isFolderish ? "Folder" : "File";

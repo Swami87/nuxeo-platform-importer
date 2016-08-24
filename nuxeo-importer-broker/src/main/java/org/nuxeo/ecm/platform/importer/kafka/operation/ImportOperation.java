@@ -33,11 +33,15 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-public class ImportOperation extends RecursiveAction {
+public class ImportOperation implements Callable<Integer> {
 
     private static final Log log = LogFactory.getLog(ImportOperation.class);
+    private final ExecutorService mInternalService = Executors.newCachedThreadPool();
 
     private CoreSession mCoreSession;
     private Collection<String> mTopics;
@@ -46,36 +50,6 @@ public class ImportOperation extends RecursiveAction {
     public ImportOperation(CoreSession coreSession, Collection<String> topics) {
         mCoreSession = coreSession;
         mTopics = topics;
-    }
-
-    @Override
-    protected void compute() {
-        try {
-            mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
-        } catch (IOException e) {
-            log.error(e);
-        }
-        mConsumer.subscribe(mTopics);
-
-        ImportOperation importOperation = new ImportOperation(mCoreSession, mConsumer.listTopics().keySet());
-        Set<ConsumerRecord<String, Message>> recoverySet = new LinkedHashSet<>();
-
-        ConsumerRecords<String, Message> records = mConsumer.poll(1000);
-
-        if (records.iterator().hasNext()) {
-            importOperation.fork();
-        }
-
-        for (ConsumerRecord<String, Message> record : records) {
-            if (!process(record.value()))  {
-                recoverySet.add(record);
-            }
-        }
-
-        if (recoverySet.size() > 0) {
-            RecoveryOperation operation = new RecoveryOperation(recoverySet);
-            operation.fork();
-        }
     }
 
 
@@ -87,5 +61,43 @@ public class ImportOperation extends RecursiveAction {
             log.error(e);
             return false;
         }
+    }
+
+    @Override
+    public Integer call() throws Exception {
+        try {
+            mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
+        } catch (IOException e) {
+            log.error(e);
+        }
+        mConsumer.subscribe(mTopics);
+
+        ConsumerRecords<String, Message> records;
+
+        Integer count = 0;
+        do {
+            records = mConsumer.poll(1000);
+
+            Set<ConsumerRecord<String, Message>> recoverySet = new LinkedHashSet<>();
+            for (ConsumerRecord<String, Message> record : records) {
+                if (!process(record.value())) {
+                    recoverySet.add(record);
+                } else {
+                    count++;
+                }
+            }
+
+            RecoveryOperation operation = new RecoveryOperation(recoverySet);
+            mInternalService.execute(operation);
+        } while (records.iterator().hasNext());
+
+        mInternalService.shutdown();
+        try {
+            mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error(e);
+        }
+
+        return count;
     }
 }

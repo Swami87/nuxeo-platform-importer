@@ -46,10 +46,6 @@ public class Importer {
 
 
     public void importMessage(Message message) throws DocumentNotFoundException {
-        sLogger.info("Importing: " + message);
-
-
-
         DocumentModel model = mCoreSession.createDocumentModel(message.getPath(), message.getTitle(), message.getType());
         model.setProperty("dublincore", "title", model.getTitle());
 
