@@ -23,40 +23,30 @@ package org.nuxeo.ecm.platfrom.importer.kafka;
 import com.google.common.base.Stopwatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.*;
 import org.junit.runner.RunWith;
 import org.nuxeo.ecm.core.api.CoreSession;
-import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.core.test.CoreFeature;
 import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
-import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.ImportManager;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
-import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
-import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
-import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 
 @RunWith(FeaturesRunner.class)
@@ -66,19 +56,16 @@ import java.util.stream.Collectors;
         "org.nuxeo.ecm.platform.filemanager.core", //
 })
 public class TestBrokerArchitecture {
-    private static final int AMOUNT = 10;
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
-    private static EventBroker sBroker;
-    private ForkJoinPool mImporterPool = ForkJoinPool.commonPool();
-    private static ExecutorService sProducerService = Executors.newFixedThreadPool(2);
-    private static ExecutorService sConsumerService = Executors.newFixedThreadPool(2);
+    private static final int AMOUNT = 3000;
+    private static final int THREADS = 4;
+    private static final String TOPIC_NAME = "messenger";
 
-    private static final String TOPIC_MSG = "messenger";
-    private static final String TOPIC_ERR = "error";
+    private static EventBroker sBroker;
+    private static ExecutorService sProducerService = Executors.newFixedThreadPool(2);
 
     private List<Data> mBlobsData;
-    private List<Message> mMessages = new ArrayList<>();
 
     @Inject
     private CoreSession session;
@@ -94,8 +81,7 @@ public class TestBrokerArchitecture {
         sBroker = new EventBroker(props);
         sBroker.start();
 
-        sBroker.createTopic(TOPIC_MSG, 1, 1);
-        sBroker.createTopic(TOPIC_ERR, 4, 1);
+        sBroker.createTopic(TOPIC_NAME, THREADS, 1);
     }
 
 
@@ -108,16 +94,6 @@ public class TestBrokerArchitecture {
     public void prepare() throws IOException {
         FileFactory factory = new FileFactory();
         mBlobsData = factory.preImportBlobs(AMOUNT);
-
-        mMessages = FileFactory.generateFileTree(AMOUNT);
-
-        mMessages.stream()
-                .filter(message -> !message.isFolderish())
-                .forEach(message -> {
-                    int rand = new Random().nextInt(mBlobsData.size());
-                    Data data = mBlobsData.get(rand);
-                    message.setData(Collections.singletonList(data));
-                });
     }
 
     @Test
@@ -125,112 +101,53 @@ public class TestBrokerArchitecture {
         Stopwatch stopwatch = Stopwatch.createStarted();
         populateProducers();
 
-        ImportManager manager = new ImportManager(session, 1);
-        manager.start(1, TOPIC_MSG);
-        manager.waitUntilStop();
+        ImportManager manager = new ImportManager(session, THREADS);
+        manager.start(THREADS, TOPIC_NAME);
+        int count = manager.waitUntilStop();
 
         stopwatch.stop();
+
         System.out.println(
-                String.format("Import of %d Documents finished in %d:%d.%d",
-                        mMessages.size(),
-                        stopwatch.elapsed(TimeUnit.MINUTES),
+                String.format("Import of %d Documents finished in %d.%d",
+                        FileFactory.counter.get(),
                         stopwatch.elapsed(TimeUnit.SECONDS),
                         stopwatch.elapsed(TimeUnit.MILLISECONDS))
         );
 
-        check();
+        Assert.assertEquals(FileFactory.counter.get(), count);
     }
-
 
 
     private void populateProducers() throws IOException {
-        Runnable[] tasks = {
-            createProducer(TOPIC_MSG, "Msg"),
-        };
-
-        for (Runnable r : tasks) {
-            sProducerService.execute(r);
-        }
+        sProducerService.execute(createProducer(TOPIC_NAME));
         sProducerService.shutdown();
     }
 
-    private Runnable createProducer(String topic, String key) throws IOException {
+    private Runnable createProducer(String topic) throws IOException {
         return () -> {
-            try (Producer<String, Message> p = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
-                for (Message msg : mMessages) {
-                    ProducerRecord<String, Message> record = new ProducerRecord<>(
-                            topic,
-                            key,
-                            msg
-                    );
-
-                    p.send(record);
-                    p.flush();
-                }
-            } catch (IOException e) {
-                sLog.error(e);
-            }
+            Message msg = FileFactory.generateMessage(1);
+            FileFactory.generateTree(mBlobsData, topic, msg, AMOUNT);
         };
     }
 
-    private void check() {
-        System.out.println("Messages sent: " + mMessages.size());
-
-        if (!TransactionHelper.isTransactionActive()) TransactionHelper.startTransaction();
-        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
-        List<DocumentModel> traversedList = Helper.traverse(list, session);
-
-        List<String> names = mMessages.stream()
-                .map(Helper::getFullPath)
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<String> models = traversedList.stream()
-                .map(DocumentModel::getPathAsString)
-                .sorted()
-                .collect(Collectors.toList());
-
-        Assert.assertArrayEquals(names.toArray(), models.toArray());
-        TransactionHelper.commitOrRollbackTransaction();
-    }
-
-
-    private void populateConsumers() {
-        Function<ConsumerRecords<String, Message>, Void> func = records -> {
-            for (ConsumerRecord<String, Message> cr : records) {
-                sLog.info(cr.key() + ": " + cr.value());
-            }
-            return null;
-        };
-
-        Runnable[] tasks = {
-            createConsumer(TOPIC_MSG, records -> {
-                return null;
-            }),
-            createConsumer(TOPIC_ERR, func),
-        };
-
-        for (Runnable r : tasks) {
-            sConsumerService.execute(r);
-        }
-        sConsumerService.shutdown();
-    }
-
-
-    private Runnable createConsumer(String topic, Function<ConsumerRecords<String, Message>, Void> func) {
-        return () -> {
-            try (Consumer<String, Message> c = new Consumer<>(ServiceHelper.loadProperties("consumer.props"))) {
-                c.subscribe(Collections.singletonList(topic));
-
-                ConsumerRecords<String, Message> records;
-                do {
-                    records = c.poll(1000);
-                    func.apply(records);
-                } while (records.iterator().hasNext());
-
-            } catch (IOException e) {
-                sLog.error(e);
-            }
-        };
-    }
+//    private void check() {
+//        System.out.println("Messages sent: " + mMessages.size());
+//
+//        if (!TransactionHelper.isTransactionActive()) TransactionHelper.startTransaction();
+//        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
+//        List<DocumentModel> traversedList = Helper.traverse(list, session);
+//
+//        List<String> names = mMessages.stream()
+//                .map(Helper::getFullPath)
+//                .sorted()
+//                .collect(Collectors.toList());
+//
+//        List<String> models = traversedList.stream()
+//                .map(DocumentModel::getPathAsString)
+//                .sorted()
+//                .collect(Collectors.toList());
+//
+//        Assert.assertArrayEquals(names.toArray(), models.toArray());
+//        TransactionHelper.commitOrRollbackTransaction();
+//    }
 }

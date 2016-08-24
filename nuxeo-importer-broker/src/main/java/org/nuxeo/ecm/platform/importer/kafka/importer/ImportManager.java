@@ -27,20 +27,19 @@ import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.operation.DefaultImportOperation;
 import org.nuxeo.ecm.platform.importer.kafka.operation.ImportOperation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.*;
 
 public class ImportManager {
 
     private static final Log log = LogFactory.getLog(ImportManager.class);
 
     private BlockingQueue<Message> mQueue = new LinkedBlockingQueue<>();
+    private List<Future<Integer>> callbacks = new ArrayList<>();
 
-    // TODO: cannot use recursive tasks, since amount of consumers exceeds expectations. => use a thread pool instead
     private ForkJoinPool mPool;
     private CoreSession mSession;
     private Boolean started = false;
@@ -58,7 +57,7 @@ public class ImportManager {
 
         for (int i = 0; i < consumers; i++) {
             ImportOperation operation = new ImportOperation(mSession, Arrays.asList(topics));
-            mPool.invoke(operation);
+            callbacks.add(mPool.submit(operation));
         }
     }
 
@@ -71,10 +70,17 @@ public class ImportManager {
     }
 
 
-    public void waitUntilStop() throws InterruptedException {
+    public int waitUntilStop() throws InterruptedException, ExecutionException {
         mPool.shutdown();
         mPool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
         started = false;
+        int count = 0;
+
+        for (Future<Integer> f : callbacks) {
+            count += f.get();
+        }
+
+        return count;
     }
 
     public void push(Message message) {

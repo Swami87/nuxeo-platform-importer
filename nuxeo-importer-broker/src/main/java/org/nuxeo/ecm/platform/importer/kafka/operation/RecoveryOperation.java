@@ -29,9 +29,8 @@ import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
 import java.util.Set;
-import java.util.concurrent.RecursiveAction;
 
-public class RecoveryOperation extends RecursiveAction {
+public class RecoveryOperation implements Runnable {
 
     private static final Log log = LogFactory.getLog(RecoveryOperation.class);
     private Set<ConsumerRecord<String, Message>> mRecords;
@@ -41,16 +40,18 @@ public class RecoveryOperation extends RecursiveAction {
     }
 
     @Override
-    protected void compute() {
+    public void run() {
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
-            for (ConsumerRecord<String, Message> record : mRecords) {
-                producer.send(new ProducerRecord<>(
-                        record.topic(),
-                        record.partition(),
-                        record.key(),
-                        record.value()
-                ));
-            }
+            mRecords.stream()
+//                    .parallel()
+                    .forEach(record -> {
+                        producer.send(new ProducerRecord<>(
+                                record.topic(),
+                                record.partition(),
+                                record.key(),
+                                record.value()
+                        ));
+                    });
         } catch (IOException e) {
             log.error(e);
         }
