@@ -27,56 +27,41 @@ import org.nuxeo.ecm.core.api.DocumentNotFoundException;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
-import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class ImportOperation implements Callable<Integer> {
+public class ImportOperation implements Operation  {
 
     private static final Log log = LogFactory.getLog(ImportOperation.class);
     private final ExecutorService mInternalService = Executors.newCachedThreadPool();
 
     private CoreSession mCoreSession;
     private Collection<String> mTopics;
-    private Consumer<String, Message> mConsumer;
+    private Properties mConsumerProps;
 
-    public ImportOperation(CoreSession coreSession, Collection<String> topics) {
+    public ImportOperation(CoreSession coreSession, Collection<String> topics, Properties consumerProps) {
         mCoreSession = coreSession;
         mTopics = topics;
+        mConsumerProps = consumerProps;
     }
 
-
-    private boolean process(Message message) {
-        try {
-            new Importer(mCoreSession).importMessage(message);
-            return true;
-        } catch (DocumentNotFoundException e) {
-            log.error(e);
-            return false;
-        }
-    }
 
     @Override
     public Integer call() throws Exception {
-        try {
-            mConsumer = new Consumer<>(ServiceHelper.loadProperties("consumer.props"));
-        } catch (IOException e) {
-            log.error(e);
-        }
-        mConsumer.subscribe(mTopics);
+        Consumer<String, Message> consumer = new Consumer<>(mConsumerProps);
+        consumer.subscribe(mTopics);
 
         ConsumerRecords<String, Message> records;
 
         Integer count = 0;
         do {
-            records = mConsumer.poll(1000);
+            records = consumer.poll(1000);
 
             Set<ConsumerRecord<String, Message>> recoverySet = new LinkedHashSet<>();
             for (ConsumerRecord<String, Message> record : records) {
@@ -92,12 +77,19 @@ public class ImportOperation implements Callable<Integer> {
         } while (records.iterator().hasNext());
 
         mInternalService.shutdown();
-        try {
-            mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            log.error(e);
-        }
+        mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
 
         return count;
+    }
+
+    @Override
+    public boolean process(Message message) {
+        try {
+            new Importer(mCoreSession).importMessage(message);
+            return true;
+        } catch (DocumentNotFoundException e) {
+            log.error(e);
+            return false;
+        }
     }
 }

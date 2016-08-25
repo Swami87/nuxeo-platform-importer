@@ -36,7 +36,7 @@ import org.nuxeo.runtime.transaction.TransactionHelper;
 
 public class Importer {
 
-    private static final Log sLogger = LogFactory.getLog(Importer.class);
+    private static final Log log = LogFactory.getLog(Importer.class);
 
     private CoreSession mCoreSession;
 
