@@ -42,16 +42,12 @@ public class RecoveryOperation implements Runnable {
     @Override
     public void run() {
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
-            mRecords.stream()
-//                    .parallel()
-                    .forEach(record -> {
-                        producer.send(new ProducerRecord<>(
-                                record.topic(),
-                                record.partition(),
-                                record.key(),
-                                record.value()
-                        ));
-                    });
+            mRecords.forEach(record -> producer.send(new ProducerRecord<>(
+                                                            record.topic(),
+                                                            record.partition(),
+                                                            record.key(),
+                                                            record.value()
+                                                    )));
         } catch (IOException e) {
             log.error(e);
         }

@@ -33,6 +33,7 @@ import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.importer.ImportManager;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
+import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
 import org.nuxeo.runtime.test.runner.Deploy;
@@ -44,6 +45,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -101,7 +103,13 @@ public class TestBrokerArchitecture {
         Stopwatch stopwatch = Stopwatch.createStarted();
         populateProducers();
 
-        ImportManager manager = new ImportManager(session, THREADS);
+        Properties props = ServiceHelper.loadProperties("consumer.props");
+        ImportManager manager = new ImportManager.Builder()
+                .session(session)
+                .threads(THREADS)
+                .consumer(props)
+                .build();
+
         manager.start(THREADS, TOPIC_NAME);
         int count = manager.waitUntilStop();
 
