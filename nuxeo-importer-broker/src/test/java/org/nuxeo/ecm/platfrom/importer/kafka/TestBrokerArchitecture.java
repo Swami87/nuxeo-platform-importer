@@ -133,8 +133,7 @@ public class TestBrokerArchitecture {
 
     private Runnable createProducer(String topic) throws IOException {
         return () -> {
-            Message msg = FileFactory.generateMessage(1);
-            FileFactory.generateTree(mBlobsData, topic, msg, AMOUNT);
+            FileFactory.generateTree(mBlobsData, topic, AMOUNT);
         };
     }
 
