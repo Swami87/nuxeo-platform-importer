@@ -33,6 +33,8 @@ import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
+import java.io.Serializable;
+
 
 public class Importer {
 
@@ -49,13 +51,12 @@ public class Importer {
         DocumentModel model = mCoreSession.createDocumentModel(message.getPath(), message.getTitle(), message.getType());
         model.setProperty("dublincore", "title", model.getTitle());
 
-        if (message.getData() != null && message.getData().get(0) != null) {
-            BlobManager blobManager = Framework.getService(BlobManager.class);
-            String provider = blobManager.getBlobProviders().keySet().iterator().next();
+        if (message.getData() != null && model.hasSchema("file")) {
+            int index = 0;
+            for (Data data : message.getData()) {
+                BlobManager blobManager = Framework.getService(BlobManager.class);
+                String provider = blobManager.getBlobProviders().keySet().iterator().next();
 
-            Data data = message.getData().get(0);
-
-            if (data != null) {
                 BlobManager.BlobInfo info = new BlobManager.BlobInfo();
 
                 info.key = provider + ":" + data.getDigest();
@@ -66,10 +67,11 @@ public class Importer {
                 info.length = data.getLength();
 
                 Blob blob = new SimpleManagedBlob(info);
-                model.setProperty("file", "content", blob);
+                model.setPropertyValue(data.getDataPaths().get(index), (Serializable)blob);
+                index++;
             }
-
         }
+
 
 
         if (!TransactionHelper.isTransactionActive()) {

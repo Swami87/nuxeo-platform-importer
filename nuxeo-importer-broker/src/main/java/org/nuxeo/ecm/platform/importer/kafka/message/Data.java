@@ -23,39 +23,27 @@ package org.nuxeo.ecm.platform.importer.kafka.message;
 import org.nuxeo.ecm.core.api.Blob;
 
 import java.io.IOException;
+import java.util.List;
 
 
 public class Data {
 
-    private byte[] mBytes;
     private String mFileName;
     private String mDigest;
     private String mEncoding;
     private long mLength;
     private String mMimeType;
+    private List<String> mDataPaths;
 
     public Data() {
     }
 
     public Data(Blob blob) throws IOException {
-//        if (blob.getByteArray() != null) {
-//            this.mBytes = blob.getByteArray();
-//        }
-
         this.mDigest = blob.getDigest();
         this.mEncoding = blob.getEncoding();
         this.mFileName = blob.getFilename();
         this.mLength = blob.getLength();
         this.mMimeType = blob.getMimeType();
-    }
-
-
-    public byte[] getBytes() {
-        return mBytes;
-    }
-
-    public void setBytes(byte[] bytes) {
-        this.mBytes = bytes;
     }
 
     public String getFileName() {
@@ -96,6 +84,14 @@ public class Data {
 
     public void setMimeType(String mMimeType) {
         this.mMimeType = mMimeType;
+    }
+
+    public List<String> getDataPaths() {
+        return mDataPaths;
+    }
+
+    public void setDataPaths(List<String> dataPaths) {
+        mDataPaths = dataPaths;
     }
 
     @Override

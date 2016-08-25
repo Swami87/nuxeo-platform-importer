@@ -41,9 +41,10 @@ public class FileFactory {
 
     public static AtomicInteger counter = new AtomicInteger(0);
 
-    public static void generateTree(List<Data> data, String topic, Message message, Integer depth) {
-        if (message == null || depth < 1) return;
+    public static void generateTree(List<Data> data, String topic, Integer depth) {
+        if (depth < 1) return;
 
+        Message message = FileFactory.generateMessage(1);
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))) {
             IntStream.range(0, depth)
 //                    .parallel()
@@ -80,7 +81,7 @@ public class FileFactory {
     }
 
 
-    protected static Message generateMessage(int num) {
+    private static Message generateMessage(int num) {
         int random  = new Random(num).nextInt(100);
         boolean isFolderish = random > 50;
         String type = isFolderish ? "Folder" : "File";
@@ -105,7 +106,9 @@ public class FileFactory {
         info.length = length;
 
         Blob blob = new SimpleManagedBlob(info);
-        return new Data(blob);
+        Data data = new Data(blob);
+        data.setDataPaths(Collections.singletonList("file:content"));
+        return data;
     }
 
 
@@ -126,7 +129,6 @@ public class FileFactory {
                     Blob blob = new StringBlob(textData);
                     blob.setFilename("blob_" + i + ".txt");
                     blob.setMimeType("plain/text");
-
                     try {
                         String digest = provider.writeBlob(blob, null);
                         Data data = generateData(digest, blob.getLength());
