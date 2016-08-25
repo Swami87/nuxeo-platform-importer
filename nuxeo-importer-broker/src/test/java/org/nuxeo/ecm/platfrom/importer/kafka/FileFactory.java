@@ -64,13 +64,14 @@ public class FileFactory {
     private static void send(Producer<String, Message> producer, String topic, Message message, List<Data> data, Integer depth) {
         if (depth <= 0) return;
         counter.incrementAndGet();
-        Message msg = generateMessage(depth * 100  + (depth % 100));
+        int rand = new Random().nextInt(1000) + 1;
+        Message msg = generateMessage(depth + rand);
         msg.setPath(Helper.getFullPath(message));
         msg.setParentHash(message.getHash());
 
         if (!msg.isFolderish()) {
-            int rand = new Random().nextInt(data.size());
-            Data bin = data.get(rand);
+            int index = new Random().nextInt(data.size());
+            Data bin = data.get(index);
             message.setData(Collections.singletonList(bin));
         } else {
             send(producer, topic, msg, data, depth-1);
@@ -85,8 +86,8 @@ public class FileFactory {
         int random  = new Random(num).nextInt(100);
         boolean isFolderish = random > 50;
         String type = isFolderish ? "Folder" : "File";
-        String title = String.valueOf(num) + "_" + type;
-
+        String uuid = UUID.randomUUID().toString().substring(0, 4);
+        String title = String.valueOf(num) + "_" + type + "_" + uuid;
         Message msg = new Message();
         msg.setTitle(title);
         msg.setType(type);

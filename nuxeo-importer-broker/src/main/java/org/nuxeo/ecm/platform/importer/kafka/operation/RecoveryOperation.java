@@ -28,28 +28,35 @@ import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.List;
 
-public class RecoveryOperation implements Runnable {
+public class RecoveryOperation implements Operation {
 
     private static final Log log = LogFactory.getLog(RecoveryOperation.class);
-    private Set<ConsumerRecord<String, Message>> mRecords;
+    private List<ConsumerRecord<String, Message>> mRecords;
 
-    public RecoveryOperation(Set<ConsumerRecord<String, Message>> set) {
-        mRecords = set;
+    public RecoveryOperation(List<ConsumerRecord<String, Message>> list) {
+        mRecords = list;
     }
 
     @Override
-    public void run() {
+    public Integer call() throws Exception {
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
             mRecords.forEach(record -> producer.send(new ProducerRecord<>(
-                                                            record.topic(),
-                                                            record.partition(),
-                                                            record.key(),
-                                                            record.value()
-                                                    )));
+                    record.topic(),
+                    record.partition(),
+                    record.key(),
+                    record.value()
+            )));
         } catch (IOException e) {
             log.error(e);
+            return 0;
         }
+        return 1;
+    }
+
+    @Override
+    public boolean process(Message message) {
+        return false;
     }
 }
