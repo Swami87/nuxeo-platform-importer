@@ -53,7 +53,7 @@ public class TestBrokerBasics {
     private static final String TOPIC = "test";
     private static final int PARTITION = 5;
 
-    private static ExecutorService es = Executors.newFixedThreadPool(6);
+    private static ExecutorService es = Executors.newFixedThreadPool(4);
 
     private EventBroker mBroker;
 
@@ -118,7 +118,6 @@ public class TestBrokerBasics {
 
         es.shutdown();
 
-        System.out.println("Waiting es");
         es.awaitTermination(60, TimeUnit.MINUTES);
 
         try {

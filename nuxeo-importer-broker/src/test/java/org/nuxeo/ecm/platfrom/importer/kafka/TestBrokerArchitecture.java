@@ -32,7 +32,6 @@ import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
 import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.importer.ImportManager;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
-import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
@@ -60,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
-    private static final int AMOUNT = 3000;
+    private static final int AMOUNT = 1000;
     private static final int THREADS = 4;
     private static final String TOPIC_NAME = "messenger";
 
@@ -128,33 +127,11 @@ public class TestBrokerArchitecture {
 
     private void populateProducers() throws IOException {
         sProducerService.execute(createProducer(TOPIC_NAME));
+        sProducerService.execute(createProducer(TOPIC_NAME));
         sProducerService.shutdown();
     }
 
     private Runnable createProducer(String topic) throws IOException {
-        return () -> {
-            FileFactory.generateTree(mBlobsData, topic, AMOUNT);
-        };
+        return () -> FileFactory.generateTree(mBlobsData, topic, AMOUNT);
     }
-
-//    private void check() {
-//        System.out.println("Messages sent: " + mMessages.size());
-//
-//        if (!TransactionHelper.isTransactionActive()) TransactionHelper.startTransaction();
-//        DocumentModelList list = session.getChildren(session.getRootDocument().getRef());
-//        List<DocumentModel> traversedList = Helper.traverse(list, session);
-//
-//        List<String> names = mMessages.stream()
-//                .map(Helper::getFullPath)
-//                .sorted()
-//                .collect(Collectors.toList());
-//
-//        List<String> models = traversedList.stream()
-//                .map(DocumentModel::getPathAsString)
-//                .sorted()
-//                .collect(Collectors.toList());
-//
-//        Assert.assertArrayEquals(names.toArray(), models.toArray());
-//        TransactionHelper.commitOrRollbackTransaction();
-//    }
 }

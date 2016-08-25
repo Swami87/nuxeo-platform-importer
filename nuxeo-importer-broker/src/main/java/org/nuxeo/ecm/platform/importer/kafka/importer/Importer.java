@@ -17,24 +17,18 @@
  * Contributors:
  *     Andrei Nechaev
  */
-
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.nuxeo.ecm.core.api.Blob;
-import org.nuxeo.ecm.core.api.CoreSession;
-import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.api.DocumentNotFoundException;
+import org.nuxeo.ecm.core.api.*;
 import org.nuxeo.ecm.core.blob.BlobManager;
 import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.transaction.TransactionHelper;
-
 import java.io.Serializable;
-
 
 public class Importer {
 
@@ -47,39 +41,40 @@ public class Importer {
     }
 
 
-    public void importMessage(Message message) throws DocumentNotFoundException {
+    public void importMessage(Message message) throws NuxeoException {
         DocumentModel model = mCoreSession.createDocumentModel(message.getPath(), message.getTitle(), message.getType());
         model.setProperty("dublincore", "title", model.getTitle());
 
         if (message.getData() != null && model.hasSchema("file")) {
             int index = 0;
             for (Data data : message.getData()) {
-                BlobManager blobManager = Framework.getService(BlobManager.class);
-                String provider = blobManager.getBlobProviders().keySet().iterator().next();
-
-                BlobManager.BlobInfo info = new BlobManager.BlobInfo();
-
-                info.key = provider + ":" + data.getDigest();
-                info.digest = message.getData().get(0).getDigest();
-                info.mimeType = data.getMimeType();
-                info.filename = data.getFileName();
-                info.encoding = data.getEncoding();
-                info.length = data.getLength();
-
-                Blob blob = new SimpleManagedBlob(info);
+                Blob blob = createBlobWith(data);
                 model.setPropertyValue(data.getDataPaths().get(index), (Serializable)blob);
                 index++;
             }
         }
 
-
-
         if (!TransactionHelper.isTransactionActive()) {
             TransactionHelper.startTransaction();
         }
-
         mCoreSession.createDocument(model);
-
         TransactionHelper.commitOrRollbackTransaction();
+        log.info("Imported: " + message);
+    }
+
+    private Blob createBlobWith(Data data) {
+        BlobManager blobManager = Framework.getService(BlobManager.class);
+        String provider = blobManager.getBlobProviders().keySet().iterator().next();
+
+        BlobManager.BlobInfo info = new BlobManager.BlobInfo();
+
+        info.key = provider + ":" + data.getDigest();
+        info.digest = data.getDigest();
+        info.mimeType = data.getMimeType();
+        info.filename = data.getFileName();
+        info.encoding = data.getEncoding();
+        info.length = data.getLength();
+
+        return new SimpleManagedBlob(info);
     }
 }
