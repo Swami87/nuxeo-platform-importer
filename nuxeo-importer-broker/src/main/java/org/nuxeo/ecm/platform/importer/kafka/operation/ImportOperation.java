@@ -87,7 +87,7 @@ public class ImportOperation implements Operation  {
     @Override
     public boolean process(Message message) {
         TransactionHelper.startTransaction();
-        try (CoreSession session = CoreInstance.openCoreSession(mRepositoryName)){
+        try (CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName)){
             new Importer(session).importMessage(message);
             return true;
         } catch (NuxeoException e) {
