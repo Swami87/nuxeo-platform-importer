@@ -103,8 +103,7 @@ public class TestBrokerArchitecture {
         populateProducers();
 
         Properties props = ServiceHelper.loadProperties("consumer.props");
-        ImportManager manager = new ImportManager.Builder()
-                .session(session)
+        ImportManager manager = new ImportManager.Builder(session.getRepositoryName())
                 .threads(THREADS)
                 .consumer(props)
                 .build();

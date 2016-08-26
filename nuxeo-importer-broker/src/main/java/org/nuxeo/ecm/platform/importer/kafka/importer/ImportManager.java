@@ -22,7 +22,6 @@ package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.platform.importer.kafka.operation.ImportOperation;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
@@ -41,14 +40,14 @@ public class ImportManager {
     private static final Log log = LogFactory.getLog(ImportManager.class);
     private static Boolean started = false;
 
+    private String mRepository;
     private List<Future<Integer>> mCallbacks = new ArrayList<>();
     private ForkJoinPool mPool;
-    private CoreSession mSession;
     private Properties mConsumerProperties;
 
     private ImportManager(Builder builder) throws IOException {
         this.mPool = new ForkJoinPool(builder.mThreads);
-        this.mSession = builder.mSession;
+        this.mRepository = builder.mRepoName;
         Properties props;
         if (builder.mConsumerProps == null) {
             props = ServiceHelper.loadProperties("consumer.props");
@@ -65,7 +64,7 @@ public class ImportManager {
         started = true;
 
         for (int i = 0; i < consumers; i++) {
-            ImportOperation operation = new ImportOperation(mSession, Arrays.asList(topics), mConsumerProperties);
+            ImportOperation operation = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties);
             mCallbacks.add(mPool.submit(operation));
         }
     }
@@ -86,16 +85,12 @@ public class ImportManager {
 
     public static class Builder {
 
-        private CoreSession mSession;
-        private Integer mThreads;
+        private String mRepoName;
+        private Integer mThreads = 1;
         private Properties mConsumerProps;
 
-        public Builder() {
-        }
-
-        public Builder session(CoreSession session) {
-            this.mSession = session;
-            return this;
+        public Builder(String repositoryName) {
+            mRepoName = repositoryName;
         }
 
         public Builder threads(Integer num) {
