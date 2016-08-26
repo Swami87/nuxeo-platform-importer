@@ -52,6 +52,7 @@ public class RecoveryOperation implements Operation {
             log.error(e);
             return 0;
         }
+
         return 1;
     }
 
