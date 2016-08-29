@@ -28,26 +28,29 @@ import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class RecoveryOperation implements Operation {
 
     private static final Log log = LogFactory.getLog(RecoveryOperation.class);
-    private List<ConsumerRecord<String, Message>> mRecords;
+    private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
 
-    public RecoveryOperation(List<ConsumerRecord<String, Message>> list) {
-        mRecords = list;
+    public RecoveryOperation(BlockingQueue<ConsumerRecord<String, Message>> queue) {
+        mRecoveryQueue = queue;
     }
 
     @Override
     public Integer call() throws Exception {
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
-            mRecords.forEach(record -> producer.send(new ProducerRecord<>(
-                    record.topic(),
-                    record.partition(),
-                    record.key(),
-                    record.value()
-            )));
+            ConsumerRecord<String, Message> record;
+            while ((record = mRecoveryQueue.poll(60, TimeUnit.SECONDS)) != null) {
+                producer.send(new ProducerRecord<>(
+                        record.topic(),
+                        record.partition(),
+                        record.key(),
+                        record.value()));
+            }
         } catch (IOException e) {
             log.error(e);
             return 0;

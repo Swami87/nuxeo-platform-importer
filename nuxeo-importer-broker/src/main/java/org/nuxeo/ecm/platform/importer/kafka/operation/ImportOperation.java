@@ -25,13 +25,14 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.nuxeo.ecm.core.api.CoreInstance;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.NuxeoException;
-import org.nuxeo.ecm.platform.importer.kafka.comparator.RecordComparator;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Properties;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -44,13 +45,14 @@ public class ImportOperation implements Operation  {
     private String mRepositoryName;
     private Collection<String> mTopics;
     private Properties mConsumerProps;
+    private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
 
-    public ImportOperation(String repositoryName, Collection<String> topics, Properties consumerProps) {
+    public ImportOperation(String repositoryName, Collection<String> topics, Properties consumerProps, BlockingQueue<ConsumerRecord<String, Message>> queue) {
         mRepositoryName = repositoryName;
         mTopics = topics;
         mConsumerProps = consumerProps;
+        mRecoveryQueue = queue;
     }
-
 
     @Override
     public Integer call() throws Exception {
@@ -62,20 +64,13 @@ public class ImportOperation implements Operation  {
         Integer count = 0;
         do {
             records = consumer.poll(1000);
-
-            List<ConsumerRecord<String, Message>> recordsToRecover = new ArrayList<>();
             for (ConsumerRecord<String, Message> record : records) {
                 if (!process(record.value())) {
-                    recordsToRecover.add(record);
+                    mRecoveryQueue.put(record);
                 } else {
                     count++;
                 }
             }
-
-            Collections.sort(recordsToRecover, new RecordComparator());
-
-            RecoveryOperation operation = new RecoveryOperation(recordsToRecover);
-            mInternalService.submit(operation);
         } while (records.iterator().hasNext());
 
         mInternalService.shutdown();

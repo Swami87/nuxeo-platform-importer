@@ -22,7 +22,10 @@ package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.operation.ImportOperation;
+import org.nuxeo.ecm.platform.importer.kafka.operation.RecoveryOperation;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
@@ -30,10 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class ImportManager {
 
@@ -41,20 +41,24 @@ public class ImportManager {
     private static Boolean started = false;
 
     private String mRepository;
-    private List<Future<Integer>> mCallbacks = new ArrayList<>();
     private ForkJoinPool mPool;
     private Properties mConsumerProperties;
 
+    private List<Future<Integer>> mCallbacks = new ArrayList<>();
+    private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
+
     private ImportManager(Builder builder) throws IOException {
-        this.mPool = new ForkJoinPool(builder.mThreads);
-        this.mRepository = builder.mRepoName;
+        mPool = new ForkJoinPool(builder.mThreads + 1);
+        mRepository = builder.mRepoName;
+        mRecoveryQueue = new ArrayBlockingQueue<>(builder.mQueueSize);
+
         Properties props;
         if (builder.mConsumerProps == null) {
             props = ServiceHelper.loadProperties("consumer.props");
         } else {
             props = builder.mConsumerProps;
         }
-        this.mConsumerProperties = props;
+        mConsumerProperties = props;
     }
 
     public void start(Integer consumers, String ...topics) throws Exception {
@@ -64,9 +68,12 @@ public class ImportManager {
         started = true;
 
         for (int i = 0; i < consumers; i++) {
-            ImportOperation operation = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties);
+            ImportOperation operation = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
             mCallbacks.add(mPool.submit(operation));
         }
+
+        RecoveryOperation operation = new RecoveryOperation(mRecoveryQueue);
+        mPool.submit(operation);
     }
 
 
@@ -87,6 +94,7 @@ public class ImportManager {
 
         private String mRepoName;
         private Integer mThreads = 1;
+        private Integer mQueueSize = 1000;
         private Properties mConsumerProps;
 
         public Builder(String repositoryName) {
@@ -95,6 +103,11 @@ public class ImportManager {
 
         public Builder threads(Integer num) {
             this.mThreads = num;
+            return this;
+        }
+
+        public Builder queueSize(Integer num) {
+            this.mQueueSize = num;
             return this;
         }
 
