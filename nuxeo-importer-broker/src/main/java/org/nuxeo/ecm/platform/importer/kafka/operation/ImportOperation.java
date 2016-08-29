@@ -25,13 +25,13 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.nuxeo.ecm.core.api.CoreInstance;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.NuxeoException;
+import org.nuxeo.ecm.platform.importer.kafka.comparator.RecordComparator;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
-import java.util.Collection;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,13 +64,20 @@ public class ImportOperation implements Operation  {
         Integer count = 0;
         do {
             records = consumer.poll(1000);
+            List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
+
+            TransactionHelper.startTransaction();
             for (ConsumerRecord<String, Message> record : records) {
                 if (!process(record.value())) {
-                    mRecoveryQueue.put(record);
+                    toRecover.add(record);
                 } else {
                     count++;
                 }
             }
+            TransactionHelper.commitOrRollbackTransaction();
+
+            Collections.sort(toRecover, new RecordComparator());
+            for (ConsumerRecord<String, Message> record : toRecover) mRecoveryQueue.put(record);
         } while (records.iterator().hasNext());
 
         mInternalService.shutdown();
@@ -81,15 +88,12 @@ public class ImportOperation implements Operation  {
 
     @Override
     public boolean process(Message message) {
-        TransactionHelper.startTransaction();
-        try (CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName)){
+        try (CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName)) {
             new Importer(session).importMessage(message);
             return true;
         } catch (NuxeoException e) {
             log.error(e);
             return false;
-        } finally {
-            TransactionHelper.commitOrRollbackTransaction();
         }
     }
 }

@@ -48,7 +48,7 @@ public class ImportManager {
     private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
 
     private ImportManager(Builder builder) throws IOException {
-        mPool = new ForkJoinPool(builder.mThreads + 1);
+        mPool = new ForkJoinPool(builder.mThreads * 2);
         mRepository = builder.mRepoName;
         mRecoveryQueue = new ArrayBlockingQueue<>(builder.mQueueSize);
 
@@ -68,23 +68,24 @@ public class ImportManager {
         started = true;
 
         for (int i = 0; i < consumers; i++) {
-            ImportOperation operation = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
-            mCallbacks.add(mPool.submit(operation));
+            ImportOperation imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
+            mCallbacks.add(mPool.submit(imOp));
+
+            RecoveryOperation reOp = new RecoveryOperation(mRecoveryQueue);
+            mPool.submit(reOp);
         }
 
-        RecoveryOperation operation = new RecoveryOperation(mRecoveryQueue);
-        mPool.submit(operation);
     }
 
 
-    public int waitUntilStop() throws InterruptedException, ExecutionException {
+    public int waitUntilStop() throws InterruptedException, ExecutionException, TimeoutException {
         mPool.shutdown();
         mPool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
         started = false;
 
         int count = 0;
         for (Future<Integer> f : mCallbacks) {
-            count += f.get();
+            count += f.get(60, TimeUnit.SECONDS);
         }
         return count;
     }

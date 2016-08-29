@@ -64,7 +64,7 @@ public class TestBrokerArchitecture {
     private static final String TOPIC_NAME = "messenger";
 
     private static EventBroker sBroker;
-    private static ExecutorService sProducerService = Executors.newFixedThreadPool(2);
+    private static ExecutorService sProducerService = Executors.newFixedThreadPool(1);
 
     private List<Data> mBlobsData;
 
