@@ -113,14 +113,17 @@ public class TestBrokerArchitecture {
 
         stopwatch.stop();
 
+        Integer docs = FileFactory.counter.get();
         System.out.println(
-                String.format("Import of %d Documents finished in %d.%d",
-                        FileFactory.counter.get(),
+                String.format("Import of %d Documents finished in %d.%d; Speed %.2f docs/s",
+                        docs,
                         stopwatch.elapsed(TimeUnit.SECONDS),
-                        stopwatch.elapsed(TimeUnit.MILLISECONDS))
+                        stopwatch.elapsed(TimeUnit.MILLISECONDS),
+                        stopwatch.elapsed(TimeUnit.MILLISECONDS) / (double)docs
+                        )
         );
 
-        Assert.assertEquals(FileFactory.counter.get(), count);
+        Assert.assertEquals(docs.intValue(), count);
     }
 
 

@@ -61,7 +61,7 @@ public class TestImporter {
 
         RandomQueuesManager qm = new RandomQueuesManager(logger, 2, 100);
 
-        RandomTextSourceNode root = RandomTextSourceNode.init(1000, 1, true);
+        RandomTextSourceNode root = RandomTextSourceNode.init(3000, 1, true);
 
         Producer producer = new SourceNodeProducer(root, logger);
 
