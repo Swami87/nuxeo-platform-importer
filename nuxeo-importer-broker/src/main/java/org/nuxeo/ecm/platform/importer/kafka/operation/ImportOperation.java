@@ -60,23 +60,30 @@ public class ImportOperation implements Operation  {
         ConsumerRecords<String, Message> records;
 
         Integer count = 0;
+
+        TransactionHelper.startTransaction();
+        CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
         do {
+            List<ConsumerRecord<String, Message>> recordsToRecover = new ArrayList<>();
+
             records = consumer.poll(1000);
 
-            List<ConsumerRecord<String, Message>> recordsToRecover = new ArrayList<>();
             for (ConsumerRecord<String, Message> record : records) {
-                if (!process(record.value())) {
+                if (!process(session, record.value())) {
                     recordsToRecover.add(record);
                 } else {
                     count++;
                 }
             }
 
+
             Collections.sort(recordsToRecover, new RecordComparator());
 
             RecoveryOperation operation = new RecoveryOperation(recordsToRecover);
             mInternalService.submit(operation);
         } while (records.iterator().hasNext());
+        TransactionHelper.commitOrRollbackTransaction();
+        session.close();
 
         mInternalService.shutdown();
         mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
@@ -95,6 +102,16 @@ public class ImportOperation implements Operation  {
             return false;
         } finally {
             TransactionHelper.commitOrRollbackTransaction();
+        }
+    }
+
+    private boolean process(CoreSession session, Message message) {
+        try {
+            new Importer(session).importMessage(message);
+            return true;
+        } catch (NuxeoException e) {
+            log.error(e);
+            return false;
         }
     }
 }

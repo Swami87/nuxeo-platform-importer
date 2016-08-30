@@ -43,7 +43,6 @@
                 <artifactId>nuxeo-importer-core</artifactId>
                 <version>${nuxeo.importer.version}</version>
             </dependency>
-
         </dependencies>
     </dependencyManagement>
 

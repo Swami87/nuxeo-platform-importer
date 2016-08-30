@@ -113,20 +113,22 @@ public class TestBrokerArchitecture {
 
         stopwatch.stop();
 
+        int docs = FileFactory.counter.get();
         System.out.println(
-                String.format("Import of %d Documents finished in %d.%d",
-                        FileFactory.counter.get(),
+                String.format("Import of %d Documents finished in %d.%d; Speed = %.2f docs/sec",
+                        docs,
                         stopwatch.elapsed(TimeUnit.SECONDS),
-                        stopwatch.elapsed(TimeUnit.MILLISECONDS))
+                        stopwatch.elapsed(TimeUnit.MILLISECONDS),
+                         (1.0 *docs) / stopwatch.elapsed(TimeUnit.SECONDS))
         );
 
-        Assert.assertEquals(FileFactory.counter.get(), count);
+        Assert.assertEquals(docs, count);
     }
 
 
     private void populateProducers() throws IOException {
         sProducerService.execute(createProducer(TOPIC_NAME));
-        sProducerService.execute(createProducer(TOPIC_NAME));
+//        sProducerService.execute(createProducer(TOPIC_NAME));
         sProducerService.shutdown();
     }
 
