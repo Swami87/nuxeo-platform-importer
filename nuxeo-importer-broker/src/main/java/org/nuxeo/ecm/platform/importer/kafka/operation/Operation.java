@@ -19,11 +19,12 @@
  */
 package org.nuxeo.ecm.platform.importer.kafka.operation;
 
+import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 
 import java.util.concurrent.Callable;
 
 public interface Operation extends Callable<Integer> {
 
-    boolean process(Message message);
+    boolean process(CoreSession session, Message message);
 }

@@ -23,6 +23,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
@@ -60,7 +61,7 @@ public class RecoveryOperation implements Operation {
     }
 
     @Override
-    public boolean process(Message message) {
+    public boolean process(CoreSession session, Message message) {
         return false;
     }
 }
