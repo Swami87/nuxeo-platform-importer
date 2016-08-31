@@ -20,8 +20,12 @@
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.nuxeo.ecm.platform.importer.kafka.actors.RecoveryActor;
 import org.nuxeo.ecm.platform.importer.kafka.operation.ImportOperation;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
@@ -63,8 +67,12 @@ public class ImportManager {
         }
         started = true;
 
+        ActorSystem system = ActorSystem.create("RecoverySystem");
+
         for (int i = 0; i < consumers; i++) {
+            ActorRef ref = system.actorOf(Props.create(RecoveryActor.class), "Actor_" + i);
             ImportOperation operation = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties);
+            operation.setRef(ref);
             mCallbacks.add(mPool.submit(operation));
         }
     }

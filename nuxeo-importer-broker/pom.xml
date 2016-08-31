@@ -38,6 +38,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Akka -->
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-actor_2.11 -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-actor_2.11</artifactId>
+            <version>2.4.9</version>
+        </dependency>
+
 
         <!-- Nuxeo stack -->
         <dependency>

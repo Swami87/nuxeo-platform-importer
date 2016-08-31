@@ -23,11 +23,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.nuxeo.ecm.platform.importer.kafka.comparator.RecordComparator;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 public class RecoveryOperation implements Operation {
@@ -41,6 +43,7 @@ public class RecoveryOperation implements Operation {
 
     @Override
     public Integer call() throws Exception {
+        Collections.sort(mRecords, new RecordComparator());
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
             mRecords.forEach(record -> producer.send(new ProducerRecord<>(
                     record.topic(),
