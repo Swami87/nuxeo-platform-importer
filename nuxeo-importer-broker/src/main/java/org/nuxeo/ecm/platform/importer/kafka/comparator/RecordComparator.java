@@ -26,9 +26,11 @@ import java.util.Comparator;
 public class RecordComparator implements Comparator<ConsumerRecord<String, Message>> {
     @Override
     public int compare(ConsumerRecord<String, Message> o1, ConsumerRecord<String, Message> o2) {
-        Message first = o1.value();
-        Message second = o2.value();
+        int first = o1.value().getPath().split("/").length;
+        int second = o2.value().getPath().split("/").length;
 
-        return first.getPath().compareTo(second.getPath());
+        if (first > second) return 1;
+        else if (first < second) return -1;
+        else return 0;
     }
 }

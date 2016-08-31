@@ -76,7 +76,6 @@ public class ImportOperation implements Operation  {
                 }
             }
 
-
             Collections.sort(recordsToRecover, new RecordComparator());
 
             RecoveryOperation operation = new RecoveryOperation(recordsToRecover);

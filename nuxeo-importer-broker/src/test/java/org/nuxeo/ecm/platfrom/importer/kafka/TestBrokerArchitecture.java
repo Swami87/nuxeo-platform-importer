@@ -128,7 +128,6 @@ public class TestBrokerArchitecture {
 
     private void populateProducers() throws IOException {
         sProducerService.execute(createProducer(TOPIC_NAME));
-//        sProducerService.execute(createProducer(TOPIC_NAME));
         sProducerService.shutdown();
     }
 

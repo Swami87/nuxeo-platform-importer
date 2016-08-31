@@ -16,24 +16,24 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>RELEASE</version>
+            <version>0.10.0.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.11</artifactId>
-            <version>RELEASE</version>
+            <version>0.10.0.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>RELEASE</version>
+            <version>0.10.0.1</version>
             <classifier>test</classifier>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.11</artifactId>
-            <version>RELEASE</version>
+            <version>0.10.0.1</version>
             <classifier>test</classifier>
             <scope>test</scope>
         </dependency>
@@ -98,6 +98,11 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Module deps -->
+        <dependency>
+            <groupId>org.nuxeo.ecm.platform</groupId>
+            <artifactId>nuxeo-importer-core</artifactId>
+        </dependency>
 
         <!-- Deps -->
         <dependency>
