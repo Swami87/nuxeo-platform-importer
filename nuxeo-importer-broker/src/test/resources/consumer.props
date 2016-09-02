@@ -6,4 +6,4 @@ value.deserializer=org.nuxeo.ecm.platform.importer.kafka.serializer.MessageDeser
 auto.offset.reset=earliest
 # fast session timeout makes it more fun to play with failover
 session.timeout.ms=10000
-max.partition.fetch.bytes=2560000
+max.partition.fetch.bytes=10240

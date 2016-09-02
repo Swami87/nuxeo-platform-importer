@@ -30,10 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class ImportManager {
 
@@ -42,11 +39,11 @@ public class ImportManager {
 
     private String mRepository;
     private List<Future<Integer>> mCallbacks = new ArrayList<>();
-    private ForkJoinPool mPool;
+    private ExecutorService mPool;
     private Properties mConsumerProperties;
 
     private ImportManager(Builder builder) throws IOException {
-        this.mPool = new ForkJoinPool(builder.mThreads);
+        this.mPool = Executors.newFixedThreadPool(builder.mThreads);
         this.mRepository = builder.mRepoName;
         Properties props;
         if (builder.mConsumerProps == null) {

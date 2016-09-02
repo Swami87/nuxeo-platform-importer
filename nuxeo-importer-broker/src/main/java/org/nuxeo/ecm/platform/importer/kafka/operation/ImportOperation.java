@@ -61,28 +61,31 @@ public class ImportOperation implements Operation  {
 
         Integer count = 0;
 
-        TransactionHelper.startTransaction();
-        CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
         do {
             List<ConsumerRecord<String, Message>> recordsToRecover = new ArrayList<>();
 
-            records = consumer.poll(1000);
+            records = consumer.poll(2000);
 
+            TransactionHelper.startTransaction();
+            CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
             for (ConsumerRecord<String, Message> record : records) {
-                if (!process(session, record.value())) {
+                Message message = record.value();
+
+                if (!process(session, message)) {
                     recordsToRecover.add(record);
                 } else {
                     count++;
                 }
             }
+            TransactionHelper.commitOrRollbackTransaction();
+            session.close();
 
             Collections.sort(recordsToRecover, new RecordComparator());
 
             RecoveryOperation operation = new RecoveryOperation(recordsToRecover);
             mInternalService.submit(operation);
         } while (records.iterator().hasNext());
-        TransactionHelper.commitOrRollbackTransaction();
-        session.close();
+
 
         mInternalService.shutdown();
         mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
