@@ -119,7 +119,7 @@ public class TestBrokerArchitecture {
                         docs,
                         stopwatch.elapsed(TimeUnit.SECONDS),
                         stopwatch.elapsed(TimeUnit.MILLISECONDS),
-                        stopwatch.elapsed(TimeUnit.MILLISECONDS) / (double)docs
+                        (1.0 * docs) / stopwatch.elapsed(TimeUnit.SECONDS)
                         )
         );
 

@@ -46,6 +46,7 @@ public class RecoveryOperation implements Operation {
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
             ConsumerRecord<String, Message> record;
             while ((record = mRecoveryQueue.poll(60, TimeUnit.SECONDS)) != null) {
+                if (record.key().equals("POISON")) break;
                 producer.send(new ProducerRecord<>(
                         record.topic(),
                         record.partition(),

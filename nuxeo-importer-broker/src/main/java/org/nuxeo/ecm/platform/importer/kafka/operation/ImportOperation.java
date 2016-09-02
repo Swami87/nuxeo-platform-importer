@@ -80,6 +80,7 @@ public class ImportOperation implements Operation  {
             Collections.sort(toRecover, new RecordComparator());
             for (ConsumerRecord<String, Message> record : toRecover) mRecoveryQueue.put(record);
         } while (records.iterator().hasNext());
+        mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
         TransactionHelper.commitOrRollbackTransaction();
         session.close();
 

@@ -43,15 +43,14 @@ public class ImportManager {
     private String mRepository;
     private ForkJoinPool mPool;
     private Properties mConsumerProperties;
+    private Integer mQueueSize;
 
     private List<Future<Integer>> mCallbacks = new ArrayList<>();
-    private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
 
     private ImportManager(Builder builder) throws IOException {
         mPool = new ForkJoinPool(builder.mThreads * 2);
         mRepository = builder.mRepoName;
-        mRecoveryQueue = new ArrayBlockingQueue<>(builder.mQueueSize);
-
+        mQueueSize = builder.mQueueSize;
         Properties props;
         if (builder.mConsumerProps == null) {
             props = ServiceHelper.loadProperties("consumer.props");
@@ -68,6 +67,8 @@ public class ImportManager {
         started = true;
 
         for (int i = 0; i < consumers; i++) {
+            BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
+
             ImportOperation imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
             mCallbacks.add(mPool.submit(imOp));
 
