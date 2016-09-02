@@ -45,7 +45,8 @@ public class ImportManager {
     private Properties mConsumerProperties;
     private Integer mQueueSize;
 
-    private List<Future<Integer>> mCallbacks = new ArrayList<>();
+    private List<Future<Integer>> mImportCallbacks = new ArrayList<>();
+    private List<Future<Integer>> mRecoveryCallbacks = new ArrayList<>();
 
     private ImportManager(Builder builder) throws IOException {
         mPool = new ForkJoinPool(builder.mThreads * 2);
@@ -69,26 +70,50 @@ public class ImportManager {
         for (int i = 0; i < consumers; i++) {
             BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
 
-            ImportOperation imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
-            mCallbacks.add(mPool.submit(imOp));
+            Callable<Integer> imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
+            mImportCallbacks.add(mPool.submit(imOp));
 
-            RecoveryOperation reOp = new RecoveryOperation(mRecoveryQueue);
-            mPool.submit(reOp);
+            Callable<Integer> reOp = new RecoveryOperation(mRecoveryQueue);
+            mRecoveryCallbacks.add(mPool.submit(reOp));
         }
 
     }
 
 
-    public int waitUntilStop() throws InterruptedException, ExecutionException, TimeoutException {
+    public Result waitUntilStop() throws InterruptedException, ExecutionException, TimeoutException {
         mPool.shutdown();
         mPool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
         started = false;
 
-        int count = 0;
-        for (Future<Integer> f : mCallbacks) {
-            count += f.get(60, TimeUnit.SECONDS);
+        int imported = 0;
+        for (Future<Integer> f : mImportCallbacks) {
+            imported += f.get(60, TimeUnit.SECONDS);
         }
-        return count;
+
+        int recovered = 0;
+        for (Future<Integer> f : mRecoveryCallbacks) {
+            recovered += f.get(60, TimeUnit.SECONDS);
+        }
+
+        return new Result(imported, recovered);
+    }
+
+    public static class Result {
+        private Integer mImported;
+        private Integer mRecovered;
+
+        public Result(Integer imported, Integer recovered) {
+            mImported = imported;
+            mRecovered = recovered;
+        }
+
+        public Integer getImported() {
+            return mImported;
+        }
+
+        public Integer getRecovered() {
+            return mRecovered;
+        }
     }
 
 

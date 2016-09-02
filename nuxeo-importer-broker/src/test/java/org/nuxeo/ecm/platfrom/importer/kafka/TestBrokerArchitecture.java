@@ -60,7 +60,7 @@ public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static final int AMOUNT = 1000;
-    private static final int THREADS = 4;
+    private static final int THREADS = 1;
     private static final String TOPIC_NAME = "messenger";
 
     private static EventBroker sBroker;
@@ -109,21 +109,24 @@ public class TestBrokerArchitecture {
                 .build();
 
         manager.start(THREADS, TOPIC_NAME);
-        int count = manager.waitUntilStop();
+        ImportManager.Result result = manager.waitUntilStop();
 
         stopwatch.stop();
 
         Integer docs = FileFactory.counter.get();
         System.out.println(
-                String.format("Import of %d Documents finished in %d.%d; Speed %.2f docs/s",
+                String.format("Import of %d Documents finished in %f;" +
+                                "\nSpeed %.2f docs/s;\n" +
+                                "------------------------------------\n" +
+                                "\nRecovered %d",
                         docs,
-                        stopwatch.elapsed(TimeUnit.SECONDS),
-                        stopwatch.elapsed(TimeUnit.MILLISECONDS),
-                        (1.0 * docs) / stopwatch.elapsed(TimeUnit.SECONDS)
+                        stopwatch.elapsed(TimeUnit.MILLISECONDS) / 1e3,
+                        (1.0 * docs) / stopwatch.elapsed(TimeUnit.SECONDS),
+                        result.getRecovered()
                         )
         );
 
-        Assert.assertEquals(docs.intValue(), count);
+        Assert.assertEquals(docs.longValue(), result.getImported().longValue());
     }
 
 

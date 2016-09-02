@@ -32,12 +32,9 @@ import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
-public class ImportOperation implements Operation  {
+public class ImportOperation implements Callable<Integer> {
 
     private static final Log log = LogFactory.getLog(ImportOperation.class);
     private final ExecutorService mInternalService = Executors.newCachedThreadPool();
@@ -66,10 +63,13 @@ public class ImportOperation implements Operation  {
         CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
         do {
             records = consumer.poll(1000);
+
+            List<ConsumerRecord<String, Message>> polled = new ArrayList<>(records.count());
+            for (ConsumerRecord<String, Message> record : records) polled.add(record);
+            Collections.sort(polled, new RecordComparator());
+
             List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
-
-
-            for (ConsumerRecord<String, Message> record : records) {
+            for (ConsumerRecord<String, Message> record : polled) {
                 if (!process(session, record.value())) {
                     toRecover.add(record);
                 } else {
@@ -81,8 +81,10 @@ public class ImportOperation implements Operation  {
             for (ConsumerRecord<String, Message> record : toRecover) mRecoveryQueue.put(record);
         } while (records.iterator().hasNext());
         mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
-        TransactionHelper.commitOrRollbackTransaction();
+
         session.close();
+        consumer.close();
+        TransactionHelper.commitOrRollbackTransaction();
 
         mInternalService.shutdown();
         mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
@@ -90,8 +92,7 @@ public class ImportOperation implements Operation  {
         return count;
     }
 
-    @Override
-    public boolean process(CoreSession session, Message message) {
+    private boolean process(CoreSession session, Message message) {
         try {
             new Importer(session).importMessage(message);
             return true;

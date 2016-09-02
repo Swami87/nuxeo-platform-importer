@@ -23,16 +23,16 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-public class RecoveryOperation implements Operation {
+public class RecoveryOperation implements Callable<Integer> {
 
     private static final Log log = LogFactory.getLog(RecoveryOperation.class);
     private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
@@ -43,6 +43,7 @@ public class RecoveryOperation implements Operation {
 
     @Override
     public Integer call() throws Exception {
+        Integer recovered = 0;
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))){
             ConsumerRecord<String, Message> record;
             while ((record = mRecoveryQueue.poll(60, TimeUnit.SECONDS)) != null) {
@@ -52,17 +53,12 @@ public class RecoveryOperation implements Operation {
                         record.partition(),
                         record.key(),
                         record.value()));
+                recovered++;
             }
         } catch (IOException e) {
             log.error(e);
-            return 0;
         }
 
-        return 1;
-    }
-
-    @Override
-    public boolean process(CoreSession session, Message message) {
-        return false;
+        return recovered;
     }
 }
