@@ -60,7 +60,7 @@ public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
     private static final int AMOUNT = 1000;
-    private static final int THREADS = 1;
+    private static final int THREADS = 2;
     private static final String TOPIC_NAME = "messenger";
 
     private static EventBroker sBroker;

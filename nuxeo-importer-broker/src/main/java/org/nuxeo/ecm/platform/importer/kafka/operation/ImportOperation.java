@@ -59,10 +59,13 @@ public class ImportOperation implements Callable<Integer> {
         ConsumerRecords<String, Message> records;
 
         Integer count = 0;
-        TransactionHelper.startTransaction();
-        CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
+
         do {
+
+            TransactionHelper.startTransaction();
+            CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
             records = consumer.poll(1000);
+
 
             List<ConsumerRecord<String, Message>> polled = new ArrayList<>(records.count());
             for (ConsumerRecord<String, Message> record : records) polled.add(record);
@@ -77,14 +80,16 @@ public class ImportOperation implements Callable<Integer> {
                 }
             }
 
+            session.close();
+            TransactionHelper.commitOrRollbackTransaction();
+
             Collections.sort(toRecover, new RecordComparator());
             for (ConsumerRecord<String, Message> record : toRecover) mRecoveryQueue.put(record);
         } while (records.iterator().hasNext());
         mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
 
-        session.close();
+
         consumer.close();
-        TransactionHelper.commitOrRollbackTransaction();
 
         mInternalService.shutdown();
         mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
