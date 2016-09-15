@@ -1,4 +1,4 @@
-package org.nuxeo.ecm.platform.importer.kafka.comparator;/*
+/*
  * (C) Copyright 2006-2016 Nuxeo SA (http://nuxeo.com/) and others.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@ package org.nuxeo.ecm.platform.importer.kafka.comparator;/*
  * Contributors:
  *     anechaev
  */
+package org.nuxeo.ecm.platform.importer.kafka.comparator;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;

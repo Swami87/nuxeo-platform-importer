@@ -55,6 +55,7 @@ public class ImportManager {
         Properties props;
         if (builder.mConsumerProps == null) {
             props = ServiceHelper.loadProperties("consumer.props");
+            log.debug("Using default props for consumers");
         } else {
             props = builder.mConsumerProps;
         }
@@ -68,15 +69,14 @@ public class ImportManager {
         started = true;
 
         for (int i = 0; i < consumers; i++) {
-            BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
+            BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
 
-            Callable<Integer> imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, mRecoveryQueue);
+            Callable<Integer> imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, recoveryQueue);
             mImportCallbacks.add(mPool.submit(imOp));
 
-            Callable<Integer> reOp = new RecoveryOperation(mRecoveryQueue);
+            Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
             mRecoveryCallbacks.add(mPool.submit(reOp));
         }
-
     }
 
 
