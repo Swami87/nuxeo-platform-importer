@@ -8,3 +8,4 @@ zookeeper.connect=127.0.0.1:2181
 zookeeper.connection.timeout.ms=3000
 replica.fetch.max.bytes=4194304
 message.max.bytes=30100
+log.retention.hours=1

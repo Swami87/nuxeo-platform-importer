@@ -29,10 +29,7 @@ import org.nuxeo.ecm.platform.importer.kafka.operation.RecoveryOperation;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.*;
 
 public class ImportManager {
@@ -68,14 +65,16 @@ public class ImportManager {
         }
         started = true;
 
-        for (int i = 0; i < consumers; i++) {
-            BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
+        for (String t : topics) {
+            for (int i = 0; i < consumers; i++) {
+                BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
 
-            Callable<Integer> imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, recoveryQueue);
-            mImportCallbacks.add(mPool.submit(imOp));
+                Callable<Integer> imOp = new ImportOperation(mRepository, Collections.singletonList(t), mConsumerProperties, recoveryQueue);
+                mImportCallbacks.add(mPool.submit(imOp));
 
-            Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
-            mRecoveryCallbacks.add(mPool.submit(reOp));
+                Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
+                mRecoveryCallbacks.add(mPool.submit(reOp));
+            }
         }
     }
 

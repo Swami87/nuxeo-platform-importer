@@ -66,11 +66,10 @@ public class ImportOperation implements Callable<Integer> {
             CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
             records = consumer.poll(1000);
 
-
             List<ConsumerRecord<String, Message>> polled = new ArrayList<>(records.count());
             for (ConsumerRecord<String, Message> record : records) polled.add(record);
-            Collections.sort(polled, new RecordComparator());
 
+            Collections.sort(polled, new RecordComparator());
             List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
             for (ConsumerRecord<String, Message> record : polled) {
                 if (!process(session, record.value())) {
@@ -83,7 +82,6 @@ public class ImportOperation implements Callable<Integer> {
             session.close();
             TransactionHelper.commitOrRollbackTransaction();
 
-            Collections.sort(toRecover, new RecordComparator());
             for (ConsumerRecord<String, Message> record : toRecover) mRecoveryQueue.put(record);
         } while (records.iterator().hasNext());
         mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
