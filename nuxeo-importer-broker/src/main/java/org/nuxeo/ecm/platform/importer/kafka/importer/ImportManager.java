@@ -65,33 +65,31 @@ public class ImportManager {
         }
         started = true;
 
-        for (String t : topics) {
-            for (int i = 0; i < consumers; i++) {
-                BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
+        for (int i = 0; i < consumers; i++) {
+            BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
 
-                Callable<Integer> imOp = new ImportOperation(mRepository, Collections.singletonList(t), mConsumerProperties, recoveryQueue);
-                mImportCallbacks.add(mPool.submit(imOp));
+            Callable<Integer> imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, recoveryQueue);
+            mImportCallbacks.add(mPool.submit(imOp));
 
-                Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
-                mRecoveryCallbacks.add(mPool.submit(reOp));
-            }
+            Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
+            mRecoveryCallbacks.add(mPool.submit(reOp));
         }
+        mPool.shutdown();
     }
 
 
     public Result waitUntilStop() throws InterruptedException, ExecutionException, TimeoutException {
-        mPool.shutdown();
         mPool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
         started = false;
 
         int imported = 0;
         for (Future<Integer> f : mImportCallbacks) {
-            imported += f.get(60, TimeUnit.SECONDS);
+            imported += f.get(Integer.MAX_VALUE, TimeUnit.SECONDS);
         }
 
         int recovered = 0;
         for (Future<Integer> f : mRecoveryCallbacks) {
-            recovered += f.get(60, TimeUnit.SECONDS);
+            recovered += f.get(Integer.MAX_VALUE, TimeUnit.SECONDS);
         }
 
         return new Result(imported, recovered);

@@ -21,6 +21,7 @@
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -42,6 +43,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 
@@ -51,9 +53,9 @@ public class TestBrokerBasics {
 
     private static final int COUNT = 100;
     private static final String TOPIC = "test";
-    private static final int PARTITION = 5;
+    private static final int PARTITION = 4;
 
-    private static ExecutorService es = Executors.newFixedThreadPool(4);
+    private static ExecutorService es = Executors.newFixedThreadPool(5);
 
     private EventBroker mBroker;
 
@@ -68,11 +70,17 @@ public class TestBrokerBasics {
         mBroker.start();
     }
 
+    public void shutdown() throws Exception {
+        mBroker.stop();
+    }
+
 
     @Test
     public void testShouldSendAndReceiveMsgViaBroker() throws Exception {
 
         mBroker.createTopic(TOPIC, PARTITION, 1);
+
+//        Thread.sleep(5000);
 
         Runnable pTask = () -> {
             try {
@@ -92,7 +100,11 @@ public class TestBrokerBasics {
             }
         };
 
-        final int[] count = {0};
+        for (int i = 0; i < PARTITION; i++) {
+            es.execute(pTask);
+        }
+
+        AtomicInteger count = new AtomicInteger(0);
         Runnable cTask = () -> {
             try {
                 Properties cp = ServiceHelper.loadProperties("consumer.props");
@@ -101,9 +113,17 @@ public class TestBrokerBasics {
                 Consumer<String, String> consumer = new Consumer<>(cp);
                 consumer.subscribe(Collections.singletonList(TOPIC));
 
-                ConsumerRecords<String, String> crs = consumer.poll(2000);
+                while (true) {
+                    ConsumerRecords<String, String> crs = consumer.poll(5000);
 
-                count[0] = crs.count();
+                    count.getAndAccumulate(crs.count(), (l,r) -> l+r);
+
+                    for (ConsumerRecord<String, String> record : crs) {
+                        System.out.println(record.value());
+                    }
+                    if (!crs.iterator().hasNext()) break;
+                }
+
                 consumer.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -112,20 +132,10 @@ public class TestBrokerBasics {
 
         es.execute(cTask);
 
-        for (int i = 0; i < PARTITION; i++) {
-            es.execute(pTask);
-        }
-
         es.shutdown();
-
         es.awaitTermination(60, TimeUnit.MINUTES);
 
-        try {
-            mBroker.stop();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        System.out.println(String.format("Messages received: %d", count[0]));
-        assertEquals(COUNT, count[0]);
+        System.out.println(String.format("Messages received: %d", count.get()));
+        assertEquals(COUNT, count.get());
     }
 }

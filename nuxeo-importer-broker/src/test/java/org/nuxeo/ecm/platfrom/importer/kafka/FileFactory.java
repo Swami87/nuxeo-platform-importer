@@ -46,14 +46,15 @@ public class FileFactory {
 
         Message message = FileFactory.generateMessage(1);
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))) {
+            message.setFolderish(true);
+            message.setType("Folder");
+            producer.send(new ProducerRecord<>(topic, "Msg", message));
+            producer.flush();
+            counter.incrementAndGet();
+
             IntStream.range(0, depth)
 //                    .parallel()
                     .forEach(i -> {
-                        message.setFolderish(true);
-                        message.setType("Folder");
-                        producer.send(new ProducerRecord<>(topic, "Msg", message));
-                        producer.flush();
-                        counter.incrementAndGet();
                         send(producer, topic, message, data, depth);
                     });
         } catch (IOException e) {

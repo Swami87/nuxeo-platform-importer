@@ -21,7 +21,6 @@
 package org.nuxeo.ecm.platform.importer.kafka.zk;
 
 import kafka.admin.AdminUtils;
-import kafka.admin.RackAwareMode;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
@@ -47,6 +46,7 @@ public class ZooKeeperStartable implements Runnable {
         try {
             quorumConfiguration.parseProperties(properties);
         } catch(Exception e) {
+            log.error(e);
             throw new RuntimeException(e);
         }
 
@@ -76,7 +76,17 @@ public class ZooKeeperStartable implements Runnable {
 
         if (AdminUtils.topicExists(utils, name)) return;
 
-        AdminUtils.createTopic(utils, name, partition, replication, new Properties(), RackAwareMode.Disabled$.MODULE$);
+        AdminUtils.createTopic(
+                utils,
+                name,
+                partition,
+                replication,
+                AdminUtils.createTopic$default$5(),
+                AdminUtils.createTopic$default$6());
+
+//        while (!utils.getAllTopics().contains(name)) {
+            Thread.sleep(5000);
+//        }
     }
 
     @Override
@@ -84,7 +94,7 @@ public class ZooKeeperStartable implements Runnable {
         try {
             mZooKeeperServer.runFromConfig(mConfiguration);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(e);
         }
     }
 

@@ -42,7 +42,6 @@ public class EventBroker {
     private static final Log log = LogFactory.getLog(EventBroker.class);
 
     private final ExecutorService mZKService = Executors.newSingleThreadExecutor();
-    private final ExecutorService mInternalService = Executors.newCachedThreadPool();
 
     private ZooKeeperStartable mZKServer;
     private KafkaServerStartable mKafkaServer;
@@ -90,22 +89,13 @@ public class EventBroker {
         mKafkaServer.shutdown();
         mKafkaServer.awaitShutdown();
         log.info("Kafka stopped");
-
         mZKServer.stop();
         mZKService.awaitTermination(5, TimeUnit.MINUTES);
         log.info("ZK stopped");
-        mInternalService.shutdown();
-        mInternalService.awaitTermination(5, TimeUnit.MINUTES);
     }
 
     
-    public void createTopic(String name, int partition, int replication) {
-        mInternalService.execute(() -> {
-            try {
-                mZKServer.createTopic(name, partition, replication);
-            } catch (Exception e) {
-                log.error(e);
-            }
-        });
+    public void createTopic(String name, int partition, int replication) throws Exception {
+        mZKServer.createTopic(name, partition, replication);
     }
 }
