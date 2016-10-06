@@ -58,7 +58,7 @@ public class Importer {
         }
 
         mCoreSession.createDocument(model);
-        log.info("Imported: " + message);
+        log.debug("Imported: " + message);
     }
 
     private Blob createBlobWith(Data data) {

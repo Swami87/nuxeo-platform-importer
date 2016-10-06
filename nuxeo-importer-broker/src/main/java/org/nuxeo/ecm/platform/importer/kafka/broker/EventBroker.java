@@ -44,6 +44,11 @@ public class EventBroker {
     private final ExecutorService mZKService = Executors.newSingleThreadExecutor();
 
     private ZooKeeperStartable mZKServer;
+
+    public KafkaServerStartable getKafkaServer() {
+        return mKafkaServer;
+    }
+
     private KafkaServerStartable mKafkaServer;
 
     public EventBroker(Map<String, String> properties) throws Exception {

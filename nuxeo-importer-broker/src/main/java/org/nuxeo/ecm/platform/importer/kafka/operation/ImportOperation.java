@@ -22,17 +22,19 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.nuxeo.ecm.core.api.CoreInstance;
-import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.NuxeoException;
-import org.nuxeo.ecm.platform.importer.kafka.comparator.RecordComparator;
+import org.nuxeo.ecm.core.api.UnrestrictedSessionRunner;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ImportOperation implements Callable<Integer> {
 
@@ -60,32 +62,17 @@ public class ImportOperation implements Callable<Integer> {
 
         Integer count = 0;
 
+        TransactionHelper.startTransaction();
         do {
-
-            TransactionHelper.startTransaction();
-            CoreSession session = CoreInstance.openCoreSessionSystem(mRepositoryName);
             records = consumer.poll(1000);
 
-            List<ConsumerRecord<String, Message>> polled = new ArrayList<>(records.count());
-            for (ConsumerRecord<String, Message> record : records) polled.add(record);
-
-            Collections.sort(polled, new RecordComparator());
-            List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
-            for (ConsumerRecord<String, Message> record : polled) {
-                if (!process(session, record.value())) {
-                    toRecover.add(record);
-                } else {
-                    count++;
-                }
-            }
-
-            session.close();
-            TransactionHelper.commitOrRollbackTransaction();
-
-            for (ConsumerRecord<String, Message> record : toRecover) mRecoveryQueue.put(record);
+            List<ConsumerRecord<String, Message>> recoverList = process(mRepositoryName, records);
+            count += (records.count() - recoverList.size());
+            for (ConsumerRecord<String, Message> record : recoverList) mRecoveryQueue.put(record);
         } while (records.iterator().hasNext());
-        mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
+        TransactionHelper.commitOrRollbackTransaction();
 
+        mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
 
         consumer.close();
 
@@ -95,13 +82,29 @@ public class ImportOperation implements Callable<Integer> {
         return count;
     }
 
-    private boolean process(CoreSession session, Message message) {
-        try {
-            new Importer(session).importMessage(message);
-            return true;
-        } catch (NuxeoException e) {
-            log.error(e);
-            return false;
-        }
+
+    private List<ConsumerRecord<String, Message>> process(String repositoryName, ConsumerRecords<String, Message> records) throws InterruptedException {
+        List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
+        AtomicBoolean isRunning = new AtomicBoolean(true);
+        UnrestrictedSessionRunner runner = new UnrestrictedSessionRunner(repositoryName) {
+
+            @Override
+            public void run() {
+                for (ConsumerRecord<String, Message> record : records) {
+                    try {
+                        new Importer(session).importMessage(record.value());
+                    } catch (NuxeoException e) {
+                        log.error(e);
+                        toRecover.add(record);
+                    }
+                }
+
+                isRunning.set(false);
+            }
+        };
+
+        runner.runUnrestricted();
+        while (isRunning.get()) Thread.sleep(100);
+        return toRecover;
     }
 }

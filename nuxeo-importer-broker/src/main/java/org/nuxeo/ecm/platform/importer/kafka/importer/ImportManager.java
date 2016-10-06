@@ -59,9 +59,9 @@ public class ImportManager {
         mConsumerProperties = props;
     }
 
-    public void start(Integer consumers, String ...topics) throws Exception {
+    public void start(Integer consumers, String ...topics) throws IllegalStateException {
         if (started) {
-            throw new Exception("Manager already started");
+            throw new IllegalStateException("Manager already started");
         }
         started = true;
 

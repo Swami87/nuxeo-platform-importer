@@ -35,6 +35,7 @@ import org.nuxeo.runtime.api.Framework;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class FileFactory {
@@ -44,7 +45,7 @@ public class FileFactory {
     public static void generateTree(List<Data> data, String topic, Integer depth) {
         if (depth < 1) return;
 
-        Message message = FileFactory.generateMessage(1);
+        Message message = generateRoot();
         try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))) {
             message.setFolderish(true);
             message.setType("Folder");
@@ -62,12 +63,39 @@ public class FileFactory {
         }
     }
 
+    public static Message generateRoot() {
+        Message msg = FileFactory.generateMessage("/", 1);
+        msg.setFolderish(true);
+        return msg;
+    }
+
+    public static List<Message> generateLevel(List<Message> previousLevel, Integer amount) {
+        List<Message> level = new ArrayList<>(amount);
+
+        IntStream.range(0, amount)
+                .forEach(i -> {
+
+                    List<Message> list = previousLevel.stream()
+                            .filter(Message::isFolderish)
+                            .collect(Collectors.toList());
+                    if (list.size() == 0) return;
+
+                    int rand = new Random().nextInt(list.size());
+                    Message randMsg = list.get(rand);
+                    String msgPath = Helper.getFullPath(randMsg);
+
+                    Message msg = generateMessage(msgPath, i);
+                    level.add(msg);
+                });
+
+        return level;
+    }
+
     private static void send(Producer<String, Message> producer, String topic, Message message, List<Data> data, Integer depth) {
         if (depth <= 0) return;
         counter.incrementAndGet();
         int rand = new Random().nextInt(1000) + 1;
-        Message msg = generateMessage(depth + rand);
-        msg.setPath(Helper.getFullPath(message));
+        Message msg = generateMessage(Helper.getFullPath(message), depth + rand);
         msg.setParentHash(message.getHash());
 
         if (!msg.isFolderish()) {
@@ -83,7 +111,7 @@ public class FileFactory {
     }
 
 
-    private static Message generateMessage(int num) {
+    private static Message generateMessage(String path, int num) {
         int random  = new Random(num).nextInt(100);
         boolean isFolderish = random > 50;
         String type = isFolderish ? "Folder" : "File";
@@ -93,7 +121,7 @@ public class FileFactory {
         msg.setTitle(title);
         msg.setType(type);
         msg.setFolderish(isFolderish);
-        msg.setPath("/");
+        msg.setPath(path);
 
         return msg;
     }
