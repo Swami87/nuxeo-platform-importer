@@ -1,0 +1,23 @@
+<component name="test.importer.service.contrib">
+  <extension target="org.nuxeo.ecm.platform.importer.service.DefaultImporterComponent" point="importerConfiguration">
+    <importerConfig sourceNodeClass="org.nuxeo.ecm.platform.importer.source.FileSourceNode">
+      <documentModelFactory documentModelFactoryClass="org.nuxeo.ecm.platform.importer.factories.FileManagerDocumentModelFactory"/>
+    </importerConfig>
+  </extension>
+  
+  <extension target="org.nuxeo.ecm.platform.types.TypeService" point="types">
+    <type id="Workspace">
+      <subtypes>
+        <type>Folder</type>
+      </subtypes>
+    </type>
+    <type id="Folder">
+      <subtypes>
+        <type>Picture</type>
+        <type>Video</type>
+        <type>Audio</type>
+      </subtypes>
+    </type>
+  </extension>
+
+</component>
