@@ -25,6 +25,17 @@
             <classifier>test</classifier>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-streams</artifactId>
+            <version>0.10.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-streams</artifactId>
+            <version>0.10.0.1</version>
+            <scope>test</scope>
+        </dependency>
 
 
         <!-- Nuxeo stack -->
