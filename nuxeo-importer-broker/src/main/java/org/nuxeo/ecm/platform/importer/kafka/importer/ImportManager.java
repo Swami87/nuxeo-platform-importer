@@ -37,8 +37,8 @@ public class ImportManager {
     private static final Log log = LogFactory.getLog(ImportManager.class);
     private static Boolean started = false;
 
+    private Integer mThreads;
     private String mRepository;
-    private ForkJoinPool mPool;
     private Properties mConsumerProperties;
     private Integer mQueueSize;
 
@@ -46,9 +46,9 @@ public class ImportManager {
     private List<Future<Integer>> mRecoveryCallbacks = new ArrayList<>();
 
     private ImportManager(Builder builder) throws IOException {
-        mPool = new ForkJoinPool(builder.mThreads * 2);
         mRepository = builder.mRepoName;
         mQueueSize = builder.mQueueSize;
+        mThreads = builder.mThreads;
         Properties props;
         if (builder.mConsumerProps == null) {
             props = ServiceHelper.loadProperties("consumer.props");
@@ -59,27 +59,46 @@ public class ImportManager {
         mConsumerProperties = props;
     }
 
-    public void start(Integer consumers, String ...topics) throws IllegalStateException {
+    public Result syncImport(List<String> topics) throws IllegalStateException, InterruptedException, ExecutionException, TimeoutException {
         if (started) {
             throw new IllegalStateException("Manager already started");
         }
-        started = true;
 
-        for (int i = 0; i < consumers; i++) {
+        Result result = new Result(0, 0);
+        for (String topic : topics) {
+            ForkJoinPool pool = new ForkJoinPool(mThreads + 1);
+            mImportCallbacks = new ArrayList<>();
+            mRecoveryCallbacks = new ArrayList<>();
+
             BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
 
-            Callable<Integer> imOp = new ImportOperation(mRepository, Arrays.asList(topics), mConsumerProperties, recoveryQueue);
-            mImportCallbacks.add(mPool.submit(imOp));
-
+            for (int i = 0; i < mThreads; i++) {
+                Callable<Integer> imOp = new ImportOperation(
+                        mRepository,
+                        Collections.singletonList(topic),
+                        mConsumerProperties,
+                        recoveryQueue
+                );
+                mImportCallbacks.add(pool.submit(imOp));
+            }
             Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
-            mRecoveryCallbacks.add(mPool.submit(reOp));
+            mRecoveryCallbacks.add(pool.submit(reOp));
+
+            Result tmp = waitUntilStop(pool);
+
+            result.addResult(tmp);
+            System.out.println(
+                    String.format("%s topic processed, imported: %d", topic, result.getImported())
+            );
         }
-        mPool.shutdown();
+
+        return result;
     }
 
 
-    public Result waitUntilStop() throws InterruptedException, ExecutionException, TimeoutException {
-        mPool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+    private Result waitUntilStop(ForkJoinPool pool) throws InterruptedException, ExecutionException, TimeoutException {
+        pool.shutdown();
+        pool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
         started = false;
 
         int imported = 0;
@@ -96,6 +115,7 @@ public class ImportManager {
     }
 
     public static class Result {
+
         private Integer mImported;
         private Integer mRecovered;
 
@@ -110,6 +130,11 @@ public class ImportManager {
 
         public Integer getRecovered() {
             return mRecovered;
+        }
+
+        public void addResult(Result that) {
+            mImported += that.getImported();
+            mRecovered += that.getRecovered();
         }
     }
 
@@ -126,7 +151,7 @@ public class ImportManager {
         }
 
         public Builder threads(Integer num) {
-            this.mThreads = num;
+            this.mThreads = num > 0 ? num : mThreads;
             return this;
         }
 

@@ -20,7 +20,6 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.core.blob.BlobManager;
@@ -28,43 +27,16 @@ import org.nuxeo.ecm.core.blob.SimpleManagedBlob;
 import org.nuxeo.ecm.core.blob.binary.BinaryBlobProvider;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
-import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
-import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.runtime.api.Framework;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class FileFactory {
 
-    public static AtomicInteger counter = new AtomicInteger(0);
-
-    public static void generateTree(List<Data> data, String topic, Integer depth) {
-        if (depth < 1) return;
-
-        Message message = generateRoot();
-        try (Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"))) {
-            message.setFolderish(true);
-            message.setType("Folder");
-            producer.send(new ProducerRecord<>(topic, "Msg", message));
-            producer.flush();
-            counter.incrementAndGet();
-
-            IntStream.range(0, depth)
-//                    .parallel()
-                    .forEach(i -> {
-                        send(producer, topic, message, data, depth);
-                    });
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public static Message generateRoot() {
-        Message msg = FileFactory.generateMessage("/", 1);
+        Message msg = FileFactory.generateMessage("/");
         msg.setFolderish(true);
         return msg;
     }
@@ -73,50 +45,23 @@ public class FileFactory {
         List<Message> level = new ArrayList<>(amount);
 
         IntStream.range(0, amount)
-                .forEach(i -> {
-
-                    List<Message> list = previousLevel.stream()
-                            .filter(Message::isFolderish)
-                            .collect(Collectors.toList());
-                    if (list.size() == 0) return;
-
-                    int rand = new Random().nextInt(list.size());
-                    Message randMsg = list.get(rand);
-                    String msgPath = Helper.getFullPath(randMsg);
-
-                    Message msg = generateMessage(msgPath, i);
-                    level.add(msg);
-                });
+                .forEach(i -> previousLevel.stream()
+                        .filter(Message::isFolderish)
+                        .forEach(message -> {
+                            String msgPath = Helper.getFullPath(message);
+                            Message msg = generateMessage(msgPath);
+                            level.add(msg);
+                        }));
 
         return level;
     }
 
-    private static void send(Producer<String, Message> producer, String topic, Message message, List<Data> data, Integer depth) {
-        if (depth <= 0) return;
-        counter.incrementAndGet();
-        int rand = new Random().nextInt(1000) + 1;
-        Message msg = generateMessage(Helper.getFullPath(message), depth + rand);
-        msg.setParentHash(message.getHash());
-
-        if (!msg.isFolderish()) {
-            int index = new Random().nextInt(data.size());
-            Data bin = data.get(index);
-            message.setData(Collections.singletonList(bin));
-        } else {
-            send(producer, topic, msg, data, depth-1);
-        }
-
-        producer.send(new ProducerRecord<>(topic, "Key", msg));
-        producer.flush();
-    }
-
-
-    private static Message generateMessage(String path, int num) {
-        int random  = new Random(num).nextInt(100);
+    private static Message generateMessage(String path) {
+        int random  = new Random().nextInt(100);
         boolean isFolderish = random > 50;
         String type = isFolderish ? "Folder" : "File";
-        String uuid = UUID.randomUUID().toString().substring(0, 4);
-        String title = String.valueOf(num) + "_" + type + "_" + uuid;
+        String uuid = UUID.randomUUID().toString().substring(0, 8);
+        String title = String.valueOf(random) + "_" + type + "_" + uuid;
         Message msg = new Message();
         msg.setTitle(title);
         msg.setType(type);

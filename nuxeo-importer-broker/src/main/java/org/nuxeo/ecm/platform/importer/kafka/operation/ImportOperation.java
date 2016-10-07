@@ -65,7 +65,7 @@ public class ImportOperation implements Callable<Integer> {
         TransactionHelper.startTransaction();
         do {
             records = consumer.poll(1000);
-
+            System.out.println("Fetched: " + records.count());
             List<ConsumerRecord<String, Message>> recoverList = process(mRepositoryName, records);
             count += (records.count() - recoverList.size());
             for (ConsumerRecord<String, Message> record : recoverList) mRecoveryQueue.put(record);
@@ -94,6 +94,7 @@ public class ImportOperation implements Callable<Integer> {
                     try {
                         new Importer(session).importMessage(record.value());
                     } catch (NuxeoException e) {
+                        System.out.println(e.getMessage());
                         log.error(e);
                         toRecover.add(record);
                     }

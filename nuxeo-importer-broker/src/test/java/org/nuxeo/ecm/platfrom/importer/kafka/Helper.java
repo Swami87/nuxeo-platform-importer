@@ -20,49 +20,10 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
-import org.nuxeo.ecm.core.api.CoreSession;
-import org.nuxeo.ecm.core.api.DocumentModel;
-import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
-import org.nuxeo.ecm.platform.importer.source.SourceNode;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 
 
 public class Helper {
-
-    protected static List<SourceNode> traverseList(List<SourceNode> nodes) throws IOException {
-        List<SourceNode> list = new LinkedList<>(nodes);
-        for (SourceNode node : nodes) {
-            if (node.getChildren() != null) {
-                list.addAll(traverseList(node.getChildren()));
-            }
-        }
-
-        return list;
-    }
-
-
-    protected static List<SourceNode> traverse(SourceNode root) throws IOException {
-        List<SourceNode> list = new LinkedList<>(Collections.singletonList(root));
-        return traverseList(list);
-    }
-
-    protected static List<DocumentModel> traverse(DocumentModelList modelList, CoreSession session) {
-        List<DocumentModel> list = new LinkedList<>(modelList);
-        for (DocumentModel model : modelList) {
-            DocumentModelList children = session.getChildren(model.getRef());
-            if (children != null && children.size() > 0) {
-                list.addAll(traverse(children, session));
-            }
-        }
-
-        return list;
-    }
-
     protected static String getFullPath(Message message) {
         return message.getPath() + getSeparator(message) + message.getTitle();
     }
