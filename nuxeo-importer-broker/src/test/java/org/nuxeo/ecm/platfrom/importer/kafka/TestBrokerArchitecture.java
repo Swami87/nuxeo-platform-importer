@@ -24,19 +24,20 @@ import com.google.common.base.Stopwatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.junit.*;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.test.CoreFeature;
 import org.nuxeo.ecm.core.test.annotations.Granularity;
 import org.nuxeo.ecm.core.test.annotations.RepositoryConfig;
-import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.importer.ImportManager;
 import org.nuxeo.ecm.platform.importer.kafka.message.Data;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
-import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
 import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
@@ -44,12 +45,15 @@ import org.nuxeo.runtime.test.runner.FeaturesRunner;
 
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 
 @RunWith(FeaturesRunner.class)
-@Features(CoreFeature.class)
+@Features({CoreFeature.class, KafkaFeature.class})
 @RepositoryConfig(cleanup = Granularity.METHOD)
 @Deploy({ "org.nuxeo.ecm.platform.filemanager.api", //
         "org.nuxeo.ecm.platform.filemanager.core", //
@@ -57,12 +61,9 @@ import java.util.concurrent.TimeUnit;
 public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
-    private static final int MAX_AMOUNT_OF_CHILDREN = 25;
+    private static final int MAX_AMOUNT_OF_CHILDREN = 35;
     private static final int THREADS = 4;
-    private static final List<String> topicLevels = Arrays.asList("One", "Two", "Three", "Four");
     private static Integer toImport = 1;
-
-    private static EventBroker sBroker;
 
     private List<Data> mBlobsData;
 
@@ -73,27 +74,16 @@ public class TestBrokerArchitecture {
     public static void setUpClass() throws Exception {
         RandomTextSourceNode.CACHE_CHILDREN = true;
 
-        Map<String, String> props = new HashMap<>();
-        props.put(Settings.KAFKA, "kafka.props");
-        props.put(Settings.ZOOKEEPER, "zk.props");
-
-        sBroker = new EventBroker(props);
-        sBroker.start();
-
-        for (String level : topicLevels) {
-            sBroker.createTopic(level, THREADS, 1);
-        }
-
         Message root = FileFactory.generateRoot();
 
         Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
-        producer.send(new ProducerRecord<>(topicLevels.get(0), "msg", root));
+        producer.send(new ProducerRecord<>(KafkaFeature.TOPICS.get(0), "msg", root));
         producer.flush();
 
         List<Message> lastImport = new ArrayList<>();
         lastImport.add(root);
 
-        for (String topic : topicLevels.subList(1, topicLevels.size())) {
+        for (String topic : KafkaFeature.TOPICS.subList(1, KafkaFeature.TOPICS.size())) {
             int rand = new Random().nextInt(MAX_AMOUNT_OF_CHILDREN) + 1;
             List<Message> generatedLevel = FileFactory.generateLevel(lastImport, rand);
             for (Message msg : generatedLevel) {
@@ -109,12 +99,6 @@ public class TestBrokerArchitecture {
             lastImport.addAll(generatedLevel);
         }
         producer.close();
-    }
-
-
-    @AfterClass
-    public static void shutdown() throws Exception {
-        sBroker.stop();
     }
 
     @Before
@@ -133,7 +117,7 @@ public class TestBrokerArchitecture {
                 .consumer(props)
                 .build();
 
-        ImportManager.Result result = manager.syncImport(topicLevels);
+        ImportManager.Result result = manager.syncImport(KafkaFeature.TOPICS);
         int imported = result.getImported();
 
         System.out.println(

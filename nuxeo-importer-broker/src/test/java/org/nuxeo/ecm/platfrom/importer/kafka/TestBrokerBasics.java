@@ -27,18 +27,14 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.Before;
 import org.junit.Test;
-import org.nuxeo.ecm.platform.importer.kafka.broker.EventBroker;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
-import org.nuxeo.ecm.platform.importer.kafka.settings.Settings;
+import org.nuxeo.runtime.test.runner.Features;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,40 +44,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.assertEquals;
 
 
-
+@Features({KafkaFeature.class})
 public class TestBrokerBasics {
 
     private static final int COUNT = 100;
-    private static final String TOPIC = "test";
+    private static final String TOPIC = KafkaFeature.TOPICS.get(0);
     private static final int PARTITION = 4;
 
     private static ExecutorService es = Executors.newFixedThreadPool(5);
 
-    private EventBroker mBroker;
-
-    @Before
-    public void setUp() throws Exception {
-        Map<String, String> brokerProps = new HashMap<>();
-        brokerProps.put(Settings.KAFKA, "kafka.props");
-        brokerProps.put(Settings.ZOOKEEPER, "zk.props");
-
-        mBroker = new EventBroker(brokerProps);
-
-        mBroker.start();
-    }
-
-    public void shutdown() throws Exception {
-        mBroker.stop();
-    }
-
-
     @Test
     public void testShouldSendAndReceiveMsgViaBroker() throws Exception {
-
-        mBroker.createTopic(TOPIC, PARTITION, 1);
-
-//        Thread.sleep(5000);
-
         Runnable pTask = () -> {
             try {
                 Properties pp = ServiceHelper.loadProperties("producer.props");

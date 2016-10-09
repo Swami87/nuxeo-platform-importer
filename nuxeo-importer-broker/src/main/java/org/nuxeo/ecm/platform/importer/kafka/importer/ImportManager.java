@@ -64,6 +64,8 @@ public class ImportManager {
             throw new IllegalStateException("Manager already started");
         }
 
+        started = true;
+
         Result result = new Result(0, 0);
         for (String topic : topics) {
             ForkJoinPool pool = new ForkJoinPool(mThreads + 1);
@@ -71,7 +73,6 @@ public class ImportManager {
             mRecoveryCallbacks = new ArrayList<>();
 
             BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
-
             for (int i = 0; i < mThreads; i++) {
                 Callable<Integer> imOp = new ImportOperation(
                         mRepository,
@@ -84,31 +85,39 @@ public class ImportManager {
             Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
             mRecoveryCallbacks.add(pool.submit(reOp));
 
-            Result tmp = waitUntilStop(pool);
+            pool.shutdown();
+            pool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
 
+            Result tmp = waitUntilResult();
             result.addResult(tmp);
+
             System.out.println(
                     String.format("%s topic processed, imported: %d", topic, result.getImported())
             );
         }
 
+        started = false;
         return result;
     }
 
 
-    private Result waitUntilStop(ForkJoinPool pool) throws InterruptedException, ExecutionException, TimeoutException {
-        pool.shutdown();
-        pool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
-        started = false;
+    private Result waitUntilResult() throws InterruptedException, ExecutionException, TimeoutException {
+        if (!started) {
+            throw new IllegalStateException("Nothing to wait");
+        }
 
         int imported = 0;
-        for (Future<Integer> f : mImportCallbacks) {
-            imported += f.get(Integer.MAX_VALUE, TimeUnit.SECONDS);
+        for (Future<Integer> future : mImportCallbacks) {
+            try {
+                imported += future.get();
+            } catch (Exception e) {// TODO: Understand why it throws "Not a folder"
+                log.error(e);
+            }
         }
 
         int recovered = 0;
         for (Future<Integer> f : mRecoveryCallbacks) {
-            recovered += f.get(Integer.MAX_VALUE, TimeUnit.SECONDS);
+            recovered += f.get();
         }
 
         return new Result(imported, recovered);
