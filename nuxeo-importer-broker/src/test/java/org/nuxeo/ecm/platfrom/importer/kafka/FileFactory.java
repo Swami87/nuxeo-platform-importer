@@ -58,7 +58,7 @@ public class FileFactory {
 
     private static Message generateMessage(String path) {
         int random  = new Random().nextInt(100);
-        boolean isFolderish = random > 50;
+        boolean isFolderish = random > 0;
         String type = isFolderish ? "Folder" : "File";
         String uuid = UUID.randomUUID().toString().substring(0, 8);
         String title = String.valueOf(random) + "_" + type + "_" + uuid;

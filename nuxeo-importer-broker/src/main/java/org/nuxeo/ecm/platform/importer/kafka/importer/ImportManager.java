@@ -31,6 +31,7 @@ import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.IntStream;
 
 public class ImportManager {
 
@@ -42,8 +43,8 @@ public class ImportManager {
     private Properties mConsumerProperties;
     private Integer mQueueSize;
 
-    private List<Future<Integer>> mImportCallbacks = new ArrayList<>();
-    private List<Future<Integer>> mRecoveryCallbacks = new ArrayList<>();
+    private Set<Future<Integer>> mImportCallbacks = new HashSet<>();
+    private Set<Future<Integer>> mRecoveryCallbacks = new HashSet<>();
 
     private ImportManager(Builder builder) throws IOException {
         mRepository = builder.mRepoName;
@@ -66,38 +67,41 @@ public class ImportManager {
 
         started = true;
 
-        Result result = new Result(0, 0);
         for (String topic : topics) {
-            ForkJoinPool pool = new ForkJoinPool(mThreads + 1);
-            mImportCallbacks = new ArrayList<>();
-            mRecoveryCallbacks = new ArrayList<>();
+            ExecutorService pool = Executors.newFixedThreadPool(mThreads + 1);
 
-            BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
-            for (int i = 0; i < mThreads; i++) {
-                Callable<Integer> imOp = new ImportOperation(
-                        mRepository,
-                        Collections.singletonList(topic),
-                        mConsumerProperties,
-                        recoveryQueue
-                );
-                mImportCallbacks.add(pool.submit(imOp));
-            }
+            final BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
+            IntStream.range(0, mThreads)
+                    .parallel()
+                    .forEach(i -> {
+                        Callable<Integer> imOp = new ImportOperation(
+                                mRepository,
+                                Collections.singletonList(topic),
+                                mConsumerProperties,
+                                recoveryQueue
+                        );
+                        mImportCallbacks.add(pool.submit(imOp));
+                    });
+
             Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);
             mRecoveryCallbacks.add(pool.submit(reOp));
 
             pool.shutdown();
             pool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+        }
 
-            Result tmp = waitUntilResult();
-            result.addResult(tmp);
+        Integer imported = 0;
+        for (Future<Integer> future : mImportCallbacks) {
+            imported += future.get();
+        }
 
-            System.out.println(
-                    String.format("%s topic processed, imported: %d", topic, result.getImported())
-            );
+        Integer recovered = 0;
+        for (Future<Integer> future : mRecoveryCallbacks) {
+            recovered += future.get();
         }
 
         started = false;
-        return result;
+        return new Result(imported, recovered);
     }
 
 
