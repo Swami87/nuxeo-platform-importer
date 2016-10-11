@@ -65,5 +65,6 @@ public class TestFileManagerDocumentModelFactory {
         file = session.getDocument(new PathRef("/default-domain/workspaces/ws1/test-data/exif_sample.jpg"));
         assertNotNull(file);
         assertEquals("Picture", file.getType());
+        assertEquals("src2", file.getPropertyValue("dc:source"));
     }
 }

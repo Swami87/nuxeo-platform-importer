@@ -49,6 +49,7 @@ public class DefaultImporterComponent extends DefaultComponent {
                 sourceNodeClass = FileSourceNode.class;
                 log.info("No custom implementation defined for the SourceNode, using FileSourceNode");
             }
+            log.debug(String.format("source node class is %s",sourceNodeClass));
             importerService.setSourceNodeClass(sourceNodeClass);
 
             Class<? extends DefaultDocumentModelFactory> docFactoryClass = descriptor.getDocumentModelFactory().getDocumentModelFactoryClass();
@@ -56,6 +57,7 @@ public class DefaultImporterComponent extends DefaultComponent {
                 docFactoryClass = DefaultDocumentModelFactory.class;
                 log.info("No custom implementation provided for the documentModelFactory, using DefaultDocumentModelFactory");
             }
+            log.debug(String.format("document factory class is %s",docFactoryClass));
             importerService.setDocModelFactoryClass(docFactoryClass);
 
             String folderishType = descriptor.getDocumentModelFactory().getFolderishType();

@@ -225,7 +225,7 @@ public class GenericThreadedImportTask implements Runnable {
                 if (fileSize > 0) {
                     long kbSize = fileSize / 1024;
                     String parentPath = (parent == null) ? "null" : parent.getPathAsString();
-                    fslog("Created doc " + leaf.getName() + " at " + parentPath + " with file " + fileName
+                    fslog("Created doc " + leaf.getName() + " as " + leaf.getType() + " at " + parentPath + " with file " + fileName
                             + " of size " + kbSize + "KB", true);
                 }
                 uploadedKO += fileSize;

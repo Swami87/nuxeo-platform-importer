@@ -19,6 +19,8 @@ package org.nuxeo.ecm.platform.importer.factories;
 
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.core.api.CoreSession;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
@@ -34,6 +36,7 @@ import org.nuxeo.runtime.api.Framework;
  */
 public class FileManagerDocumentModelFactory extends AbstractDocumentModelFactory {
 
+    private static final Log log = LogFactory.getLog(AbstractDocumentModelFactory.class);
     protected FileManager fileManager;
 
     @Override
@@ -46,6 +49,7 @@ public class FileManagerDocumentModelFactory extends AbstractDocumentModelFactor
     public DocumentModel createLeafNode(CoreSession session, DocumentModel parent, SourceNode node) throws IOException {
         FileManager fileManager = getFileManager();
         BlobHolder bh = node.getBlobHolder();
+	log.debug("hi");
         DocumentModel doc = fileManager.createDocumentFromBlob(session, bh.getBlob(), parent.getPathAsString(), true,
                 node.getName());
         doc = setDocumentProperties(session, bh.getProperties(), doc);
