@@ -89,7 +89,7 @@ public class TestBrokerArchitecture {
             for (Message msg : generatedLevel) {
                 producer.send(new ProducerRecord<>(topic, "msg", msg), (metadata, exception) -> {
                     if (exception != null) {
-                        exception.printStackTrace();
+                        sLog.error(exception);
                     }
                 });
                 producer.flush();

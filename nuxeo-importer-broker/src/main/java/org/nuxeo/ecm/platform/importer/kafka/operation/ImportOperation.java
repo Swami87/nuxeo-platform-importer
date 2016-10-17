@@ -66,18 +66,22 @@ public class ImportOperation implements Callable<Integer> {
         ConsumerRecords<String, Message> records;
 
         Integer count = 0;
-
-        do {
-            records = consumer.poll(5000);
-            System.out.println("Fetched: " + records.count());
-            List<ConsumerRecord<String, Message>> recoverList = process(mRepositoryName, records);
-            count += (records.count() - recoverList.size());
-            for (ConsumerRecord<String, Message> record : recoverList) mRecoveryQueue.put(record);
-        } while (records.iterator().hasNext());
-
-        mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
-
-        consumer.close();
+        if (TransactionHelper.isNoTransaction()) {
+            TransactionHelper.startTransaction();
+        }
+        try (CoreSession session = CoreInstance.openCoreSession(mRepositoryName)) {
+            do {
+                records = consumer.poll(5000);
+                System.out.println("Fetched: " + records.count());
+                List<ConsumerRecord<String, Message>> recoverList = process(session, records);
+                count += (records.count() - recoverList.size());
+                for (ConsumerRecord<String, Message> record : recoverList) mRecoveryQueue.put(record);
+            } while (records.iterator().hasNext());
+        } finally {
+            TransactionHelper.commitOrRollbackTransaction();
+            mRecoveryQueue.put(new ConsumerRecord<>("empty", 0,0,"POISON", null));
+            consumer.close();
+        }
 
         mInternalService.shutdown();
         mInternalService.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
@@ -86,17 +90,17 @@ public class ImportOperation implements Callable<Integer> {
     }
 
 
-    private List<ConsumerRecord<String, Message>> process(String repositoryName, ConsumerRecords<String, Message> records) throws InterruptedException {
+    private List<ConsumerRecord<String, Message>> process(CoreSession session, ConsumerRecords<String, Message> records) throws InterruptedException {
         List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
         AtomicBoolean isRunning = new AtomicBoolean(true);
 
         final int batchSize = 50;
 
+        if (TransactionHelper.isNoTransaction()) {
+            TransactionHelper.startTransaction();
+        }
+
         if (records.count() <= batchSize) {
-            if (TransactionHelper.isNoTransaction()) {
-                TransactionHelper.startTransaction();
-            }
-            CoreSession session = CoreInstance.openCoreSession(repositoryName);
             for (ConsumerRecord<String, Message> record : records) {
                 try {
                     new Importer(session).importMessage(record.value());
@@ -106,20 +110,20 @@ public class ImportOperation implements Callable<Integer> {
 //                    TransactionHelper.setTransactionRollbackOnly();
                 }
             }
-            session.close();
-            isRunning.set(false);
             TransactionHelper.commitOrRollbackTransaction();
+            isRunning.set(false);
+
         } else {
             List<Message> toImport = new ArrayList<>(batchSize);
             Iterator<ConsumerRecord<String, Message>> it = records.iterator();
             while (it.hasNext()) {
                 ConsumerRecord<String, Message> record = it.next();
                 toImport.add(record.value());
-                if (TransactionHelper.isNoTransaction()) {
-                    TransactionHelper.startTransaction();
-                }
-                CoreSession session = CoreInstance.openCoreSession(repositoryName);
+                // TODO: Look closer
                 if (toImport.size() == batchSize || !it.hasNext()) {
+                    if (TransactionHelper.isNoTransaction()) {
+                        TransactionHelper.startTransaction();
+                    }
                     for (Message message : toImport) {
                         try {
                             new Importer(session).importMessage(message);
@@ -129,10 +133,10 @@ public class ImportOperation implements Callable<Integer> {
 //                            TransactionHelper.setTransactionRollbackOnly();
                         }
                     }
+                    toImport.clear();
+                    TransactionHelper.commitOrRollbackTransaction();
                 }
-                session.close();
                 isRunning.set(false);
-                TransactionHelper.commitOrRollbackTransaction();
             }
         }
 
