@@ -88,6 +88,7 @@ public class ImportManager {
 
             pool.shutdown();
             pool.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+//            Thread.sleep(1500);
         }
 
         Integer imported = 0;

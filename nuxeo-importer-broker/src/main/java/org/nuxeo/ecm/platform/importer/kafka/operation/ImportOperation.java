@@ -68,7 +68,7 @@ public class ImportOperation implements Callable<Integer> {
         Integer count = 0;
 
         do {
-            records = consumer.poll(1000);
+            records = consumer.poll(5000);
             System.out.println("Fetched: " + records.count());
             List<ConsumerRecord<String, Message>> recoverList = process(mRepositoryName, records);
             count += (records.count() - recoverList.size());

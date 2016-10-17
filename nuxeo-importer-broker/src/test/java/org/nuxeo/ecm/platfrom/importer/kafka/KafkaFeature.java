@@ -46,7 +46,7 @@ public class KafkaFeature extends SimpleFeature {
 
     private static final String ZK_HOST = "127.0.0.1";
 
-    public static final List<String> TOPICS = Arrays.asList("One", "Two", "Three", "Four");
+    public static final List<String> TOPICS = Arrays.asList("level_1", "level_2", "level_3", "level_4");
 
     private KafkaServer kafkaServer;
 

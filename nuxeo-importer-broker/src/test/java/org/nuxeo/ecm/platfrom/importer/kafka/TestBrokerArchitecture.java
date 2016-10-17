@@ -76,7 +76,7 @@ public class TestBrokerArchitecture {
 
         Message root = FileFactory.generateRoot();
 
-        Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("producer.props"));
+        Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("local_producer.props"));
         producer.send(new ProducerRecord<>(KafkaFeature.TOPICS.get(0), "msg", root));
         producer.flush();
 
@@ -111,7 +111,7 @@ public class TestBrokerArchitecture {
     @Test
     public void testShouldImportLevelByLevel() throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        Properties props = ServiceHelper.loadProperties("consumer.props");
+        Properties props = ServiceHelper.loadProperties("local_consumer.props");
         ImportManager manager = new ImportManager.Builder(session.getRepositoryName())
                 .threads(THREADS)
                 .consumer(props)
