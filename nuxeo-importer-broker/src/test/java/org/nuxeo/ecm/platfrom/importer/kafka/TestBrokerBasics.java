@@ -28,6 +28,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Test;
+import org.nuxeo.ecm.platform.importer.kafka.avro.Message;
+import org.nuxeo.ecm.platform.importer.kafka.avro.MessageDeserializer;
+import org.nuxeo.ecm.platform.importer.kafka.avro.MessageSerializer;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
@@ -35,6 +38,7 @@ import org.nuxeo.runtime.test.runner.Features;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -92,6 +96,75 @@ public class TestBrokerBasics {
                     count.getAndAccumulate(crs.count(), (l,r) -> l+r);
 
                     for (ConsumerRecord<String, String> record : crs) {
+                        System.out.println(record.value());
+                    }
+                    if (!crs.iterator().hasNext()) break;
+                }
+
+                consumer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        };
+
+        es.execute(cTask);
+
+        es.shutdown();
+        es.awaitTermination(60, TimeUnit.MINUTES);
+
+        System.out.println(String.format("Messages received: %d", count.get()));
+        assertEquals(COUNT, count.get());
+    }
+
+    @Test
+    public void testShouldUsePassAvroMessages() throws InterruptedException {
+        Runnable pTask = () -> {
+            try {
+                Properties pp = ServiceHelper.loadProperties("local_producer.props");
+                pp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, MessageSerializer.class.getName());
+
+                Producer<String, Message> producer = new Producer<>(pp);
+                for (int i = 0; i < COUNT / PARTITION; i++) {
+                    Message msg = Message.newBuilder()
+                            .setType("Folder")
+                            .setTitle("Test_" + i)
+                            .setFolderish(true)
+                            .setHash("hash0000" + i)
+                            .setParent("/path/" + i)
+                            .setPath("/path/" + i)
+                            .setProperties(new HashMap<>())
+                            .build();
+                    ProducerRecord<String, Message> pr = new ProducerRecord<>(TOPIC, "Msg", msg);
+                    producer.send(pr);
+                    producer.flush();
+                    System.out.println("sent" + msg);
+                }
+
+                producer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        };
+
+        for (int i = 0; i < PARTITION; i++) {
+            es.execute(pTask);
+        }
+
+        AtomicInteger count = new AtomicInteger(0);
+        Runnable cTask = () -> {
+            try {
+                Properties cp = ServiceHelper.loadProperties("local_consumer.props");
+                cp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, MessageDeserializer.class.getName());
+
+                Consumer<String, Message> consumer = new Consumer<>(cp);
+                consumer.subscribe(Collections.singletonList(TOPIC));
+
+                while (true) {
+                    ConsumerRecords<String, Message> crs = consumer.poll(5000);
+
+                    count.getAndAccumulate(crs.count(), (l,r) -> l+r);
+
+                    for (ConsumerRecord<String, Message> record : crs) {
                         System.out.println(record.value());
                     }
                     if (!crs.iterator().hasNext()) break;
