@@ -14,13 +14,15 @@
  * Contributors:
  *     tiry
  */
-package org.nuxeo.ecm.platfrom.importer.kafka;
+package org.nuxeo.ecm.platfrom.importer.kafka.features;
 
-import kafka.admin.AdminUtils;
-import kafka.admin.RackAwareMode;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
-import kafka.utils.*;
+import kafka.utils.MockTime;
+import kafka.utils.TestUtils;
+import kafka.utils.Time;
+import kafka.utils.ZKStringSerializer$;
+import kafka.utils.ZkUtils;
 import kafka.zk.EmbeddedZookeeper;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.logging.Log;
@@ -30,7 +32,6 @@ import org.nuxeo.runtime.test.runner.FeaturesRunner;
 import org.nuxeo.runtime.test.runner.SimpleFeature;
 
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -42,11 +43,9 @@ import static org.junit.Assert.assertEquals;
  *
  * @since 8.4
  */
-public class KafkaFeature extends SimpleFeature {
+public abstract class AbstractKafkaFeature extends SimpleFeature {
 
     private static final String ZK_HOST = "127.0.0.1";
-
-    public static final List<String> TOPICS = Arrays.asList("level_1", "level_2", "level_3", "level_4");
 
     private KafkaServer kafkaServer;
 
@@ -54,7 +53,7 @@ public class KafkaFeature extends SimpleFeature {
 
     private EmbeddedZookeeper zkServer;
 
-    private static final Log log = LogFactory.getLog(KafkaFeature.class);
+    private static final Log log = LogFactory.getLog(AbstractKafkaFeature.class);
 
 
     @Override
@@ -90,15 +89,12 @@ public class KafkaFeature extends SimpleFeature {
 
         List<KafkaServer> servers = Collections.singletonList(kafkaServer);
 
-        for (String topic : TOPICS) {
-            AdminUtils.createTopic(zkUtils, topic, topicPartition, topicReplicationFactor, new Properties(),
-                    RackAwareMode.Disabled$.MODULE$);
-
-            TestUtils.waitUntilMetadataIsPropagated(scala.collection.JavaConversions.asScalaBuffer(servers), topic, 0, 10000);
-        }
+        propagateTopics(zkUtils, servers, topicReplicationFactor, topicPartition);
 
         log.debug("**** Kafka test environment Started");
     }
+
+    public abstract void propagateTopics(ZkUtils utils, List<KafkaServer> servers, Integer replications, Integer partitions);
 
     @Override
     public void afterRun(FeaturesRunner runner) throws Exception {

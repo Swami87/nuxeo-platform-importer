@@ -39,6 +39,7 @@ import org.nuxeo.ecm.platform.importer.kafka.message.Message;
 import org.nuxeo.ecm.platform.importer.kafka.producer.Producer;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 import org.nuxeo.ecm.platform.importer.source.RandomTextSourceNode;
+import org.nuxeo.ecm.platfrom.importer.kafka.features.KafkaManyTopicsFeature;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
@@ -51,9 +52,11 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static org.nuxeo.ecm.platfrom.importer.kafka.features.KafkaManyTopicsFeature.TOPICS;
+
 
 @RunWith(FeaturesRunner.class)
-@Features({CoreFeature.class, KafkaFeature.class})
+@Features({CoreFeature.class, KafkaManyTopicsFeature.class})
 @RepositoryConfig(cleanup = Granularity.METHOD)
 @Deploy({ "org.nuxeo.ecm.platform.filemanager.api", //
         "org.nuxeo.ecm.platform.filemanager.core", //
@@ -63,7 +66,7 @@ public class TestBrokerArchitecture {
 
     private static final int MAX_AMOUNT_OF_CHILDREN = 35;
     private static final int THREADS = 4;
-    private static Integer toImport = 1;
+    private static Integer toImport = 0;
 
     private List<Data> mBlobsData;
 
@@ -74,16 +77,10 @@ public class TestBrokerArchitecture {
     public static void setUpClass() throws Exception {
         RandomTextSourceNode.CACHE_CHILDREN = true;
 
-        Message root = FileFactory.generateRoot();
-
         Producer<String, Message> producer = new Producer<>(ServiceHelper.loadProperties("local_producer.props"));
-        producer.send(new ProducerRecord<>(KafkaFeature.TOPICS.get(0), "msg", root));
-        producer.flush();
-
         List<Message> lastImport = new ArrayList<>();
-        lastImport.add(root);
 
-        for (String topic : KafkaFeature.TOPICS.subList(1, KafkaFeature.TOPICS.size())) {
+        for (String topic : TOPICS) {
             int rand = new Random().nextInt(MAX_AMOUNT_OF_CHILDREN) + 1;
             List<Message> generatedLevel = FileFactory.generateLevel(lastImport, rand);
             for (Message msg : generatedLevel) {
@@ -115,9 +112,11 @@ public class TestBrokerArchitecture {
         ImportManager manager = new ImportManager.Builder(session.getRepositoryName())
                 .threads(THREADS)
                 .consumer(props)
+                .queueSize(1000)
+                .batchSize(50)
                 .build();
 
-        ImportManager.Result result = manager.syncImport(KafkaFeature.TOPICS);
+        ImportManager.Result result = manager.syncImport(TOPICS);
         int imported = result.getImported();
 
         System.out.println(

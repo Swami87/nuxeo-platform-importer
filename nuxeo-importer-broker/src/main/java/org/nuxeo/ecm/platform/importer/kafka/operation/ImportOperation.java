@@ -24,6 +24,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.nuxeo.ecm.core.api.CoreInstance;
 import org.nuxeo.ecm.core.api.CoreSession;
+import org.nuxeo.ecm.core.api.NuxeoException;
 import org.nuxeo.ecm.platform.importer.kafka.consumer.Consumer;
 import org.nuxeo.ecm.platform.importer.kafka.importer.Importer;
 import org.nuxeo.ecm.platform.importer.kafka.message.Message;
@@ -39,23 +40,28 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ImportOperation implements Callable<Integer> {
 
     private static final Log log = LogFactory.getLog(ImportOperation.class);
     private final ExecutorService mInternalService = Executors.newCachedThreadPool();
 
-    private String mRepositoryName;
+    private final String mRepositoryName;
+    private final Integer mBatchSize;
     private Collection<String> mTopics;
     private Properties mConsumerProps;
     private BlockingQueue<ConsumerRecord<String, Message>> mRecoveryQueue;
 
-    public ImportOperation(String repositoryName, Collection<String> topics, Properties consumerProps, BlockingQueue<ConsumerRecord<String, Message>> queue) {
+    public ImportOperation(String repositoryName, Collection<String> topics,
+                           Properties consumerProps,
+                           BlockingQueue<ConsumerRecord<String, Message>> queue,
+                           Integer batchSize) {
+
         mRepositoryName = repositoryName;
         mTopics = topics;
         mConsumerProps = consumerProps;
         mRecoveryQueue = queue;
+        mBatchSize = batchSize;
     }
 
     @Override
@@ -92,15 +98,12 @@ public class ImportOperation implements Callable<Integer> {
 
     private List<ConsumerRecord<String, Message>> process(CoreSession session, ConsumerRecords<String, Message> records) throws InterruptedException {
         List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
-        AtomicBoolean isRunning = new AtomicBoolean(true);
-
-        final int batchSize = 50;
 
         if (TransactionHelper.isNoTransaction()) {
             TransactionHelper.startTransaction();
         }
 
-        if (records.count() <= batchSize) {
+        if (records.count() <= mBatchSize) {
             for (ConsumerRecord<String, Message> record : records) {
                 try {
                     new Importer(session).importMessage(record.value());
@@ -111,36 +114,33 @@ public class ImportOperation implements Callable<Integer> {
                 }
             }
             TransactionHelper.commitOrRollbackTransaction();
-            isRunning.set(false);
 
         } else {
-            List<Message> toImport = new ArrayList<>(batchSize);
             Iterator<ConsumerRecord<String, Message>> it = records.iterator();
+            int counter = 0;
+
             while (it.hasNext()) {
                 ConsumerRecord<String, Message> record = it.next();
-                toImport.add(record.value());
-                // TODO: Look closer
-                if (toImport.size() == batchSize || !it.hasNext()) {
-                    if (TransactionHelper.isNoTransaction()) {
-                        TransactionHelper.startTransaction();
-                    }
-                    for (Message message : toImport) {
-                        try {
-                            new Importer(session).importMessage(message);
-                        } catch (Exception e) {
-                            log.error(e);
-                            toRecover.add(record);
-//                            TransactionHelper.setTransactionRollbackOnly();
-                        }
-                    }
-                    toImport.clear();
-                    TransactionHelper.commitOrRollbackTransaction();
+
+                if (TransactionHelper.isNoTransaction()) {
+                    TransactionHelper.startTransaction();
                 }
-                isRunning.set(false);
+                try {
+                    new Importer(session).importMessage(record.value());
+                    counter++;
+                } catch (NuxeoException e) {
+                    log.error(e);
+                    toRecover.add(record);
+//                            TransactionHelper.setTransactionRollbackOnly();
+                }
+
+                if (counter >= mBatchSize || !it.hasNext()) {
+                    TransactionHelper.commitOrRollbackTransaction();
+                    counter = 0;
+                }
             }
         }
 
-        while (isRunning.get()) Thread.sleep(250);
         return toRecover;
     }
 }

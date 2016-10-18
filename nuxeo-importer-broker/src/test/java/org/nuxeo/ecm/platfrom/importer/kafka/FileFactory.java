@@ -36,32 +36,39 @@ import java.util.stream.IntStream;
 public class FileFactory {
 
     public static Message generateRoot() {
-        Message msg = FileFactory.generateMessage("/");
+        Message msg = FileFactory.generateMessage("/", 0);
         msg.setFolderish(true);
         return msg;
     }
 
     public static List<Message> generateLevel(List<Message> previousLevel, Integer amount) {
         List<Message> level = new ArrayList<>(amount);
-
-        IntStream.range(0, amount)
-                .forEach(i -> previousLevel.stream()
-                        .filter(Message::isFolderish)
-                        .forEach(message -> {
-                            String msgPath = Helper.getFullPath(message);
-                            Message msg = generateMessage(msgPath);
-                            level.add(msg);
-                        }));
+        if (previousLevel == null || previousLevel.isEmpty()) {
+            IntStream.range(0, amount)
+                    .forEach(i -> {
+                        String msgPath = "/";
+                        Message msg = generateMessage(msgPath, i);
+                        level.add(msg);
+                    });
+        } else {
+            IntStream.range(0, amount)
+                    .forEach(i -> previousLevel.stream()
+                            .filter(Message::isFolderish)
+                            .forEach(message -> {
+                                String msgPath = Helper.getFullPath(message);
+                                Message msg = generateMessage(msgPath, i);
+                                level.add(msg);
+                            }));
+        }
 
         return level;
     }
 
-    private static Message generateMessage(String path) {
+    private static Message generateMessage(String path, int num) {
         int random  = new Random().nextInt(100);
-        boolean isFolderish = random > 0;
+        boolean isFolderish = random >= 50;
         String type = isFolderish ? "Folder" : "File";
-        String uuid = UUID.randomUUID().toString().substring(0, 8);
-        String title = String.valueOf(random) + "_" + type + "_" + uuid;
+        String title = num + "_" + type;
         Message msg = new Message();
         msg.setTitle(title);
         msg.setType(type);

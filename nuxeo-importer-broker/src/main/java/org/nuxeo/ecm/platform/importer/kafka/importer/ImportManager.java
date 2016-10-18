@@ -29,8 +29,20 @@ import org.nuxeo.ecm.platform.importer.kafka.operation.RecoveryOperation;
 import org.nuxeo.ecm.platform.importer.kafka.settings.ServiceHelper;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 
 public class ImportManager {
@@ -42,6 +54,7 @@ public class ImportManager {
     private String mRepository;
     private Properties mConsumerProperties;
     private Integer mQueueSize;
+    private Integer mBatchSize;
 
     private Set<Future<Integer>> mImportCallbacks = new HashSet<>();
     private Set<Future<Integer>> mRecoveryCallbacks = new HashSet<>();
@@ -78,7 +91,8 @@ public class ImportManager {
                                 mRepository,
                                 Collections.singletonList(topic),
                                 mConsumerProperties,
-                                recoveryQueue
+                                recoveryQueue,
+                                mBatchSize
                         );
                         mImportCallbacks.add(pool.submit(imOp));
                     });
@@ -158,6 +172,7 @@ public class ImportManager {
         private String mRepoName;
         private Integer mThreads = 1;
         private Integer mQueueSize = 1000;
+        private Integer mBatchSize = 50;
         private Properties mConsumerProps;
 
         public Builder(String repositoryName) {
@@ -171,6 +186,11 @@ public class ImportManager {
 
         public Builder queueSize(Integer num) {
             this.mQueueSize = num;
+            return this;
+        }
+
+        public Builder batchSize(Integer num) {
+            this.mBatchSize = num;
             return this;
         }
 
