@@ -1,0 +1,14 @@
+{
+  "namespace": "org.nuxeo.ecm.platform.importer.kafka.avro",
+  "type": "record",
+  "name": "Message",
+  "fields": [
+    { "name": "title", "type": "string" },
+    { "name": "path", "type": "string" },
+    { "name": "folderish", "type": "boolean" },
+    { "name": "properties", "type": { "type": "map", "values": "string" }},
+    { "name": "hash", "type": "string" },
+    { "name": "parent", "type": "string" },
+    { "name": "type", "type": "string" }
+  ]
+}

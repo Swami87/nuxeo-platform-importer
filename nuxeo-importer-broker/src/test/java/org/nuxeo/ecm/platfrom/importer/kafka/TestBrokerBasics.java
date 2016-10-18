@@ -48,7 +48,7 @@ import static org.junit.Assert.assertEquals;
 public class TestBrokerBasics {
 
     private static final int COUNT = 100;
-    private static final String TOPIC = KafkaFeature.TOPICS.get(0);
+    private static final String TOPIC = "test";
     private static final int PARTITION = 4;
 
     private static ExecutorService es = Executors.newFixedThreadPool(5);
