@@ -64,7 +64,7 @@ import static org.nuxeo.ecm.platfrom.importer.kafka.features.KafkaManyTopicsFeat
 public class TestBrokerArchitecture {
     private static final Log sLog = LogFactory.getLog(TestBrokerArchitecture.class);
 
-    private static final int MAX_AMOUNT_OF_CHILDREN = 35;
+    private static final int MAX_AMOUNT_OF_CHILDREN = 15;
     private static final int THREADS = 4;
     private static Integer toImport = 0;
 

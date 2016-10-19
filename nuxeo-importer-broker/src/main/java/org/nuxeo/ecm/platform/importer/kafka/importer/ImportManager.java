@@ -20,6 +20,7 @@
 package org.nuxeo.ecm.platform.importer.kafka.importer;
 
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -41,6 +42,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
@@ -71,6 +73,7 @@ public class ImportManager {
             props = builder.mConsumerProps;
         }
         mConsumerProperties = props;
+        mBatchSize = builder.mBatchSize;
     }
 
     public Result syncImport(List<String> topics) throws IllegalStateException, InterruptedException, ExecutionException, TimeoutException {
@@ -81,11 +84,15 @@ public class ImportManager {
         started = true;
 
         for (String topic : topics) {
-            ExecutorService pool = Executors.newFixedThreadPool(mThreads + 1);
+            final ThreadFactory factory = new ThreadFactoryBuilder()
+                    .setNameFormat(topic + "-%d")
+                    .setDaemon(false)
+                    .build();
+            ExecutorService pool = Executors.newFixedThreadPool(mThreads + 1, factory);
 
             final BlockingQueue<ConsumerRecord<String, Message>> recoveryQueue = new ArrayBlockingQueue<>(mQueueSize);
             IntStream.range(0, mThreads)
-                    .parallel()
+//                    .parallel() // Parallel should be used with bigger range, >1000, perhaps it's not our case
                     .forEach(i -> {
                         Callable<Integer> imOp = new ImportOperation(
                                 mRepository,
@@ -94,7 +101,8 @@ public class ImportManager {
                                 recoveryQueue,
                                 mBatchSize
                         );
-                        mImportCallbacks.add(pool.submit(imOp));
+                        Future<Integer> imp = pool.submit(imOp);
+                        mImportCallbacks.add(imp);
                     });
 
             Callable<Integer> reOp = new RecoveryOperation(recoveryQueue);

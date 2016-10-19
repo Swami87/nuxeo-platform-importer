@@ -54,7 +54,7 @@ import static org.nuxeo.ecm.platfrom.importer.kafka.features.KafkaOneTopicFeatur
 @Features({KafkaOneTopicFeature.class})
 public class TestBrokerBasics {
 
-    private static final int COUNT = 2;
+    private static final int COUNT = 100;
     private static final int PARTITION = 2;
 
     private static ExecutorService es = Executors.newFixedThreadPool(4);

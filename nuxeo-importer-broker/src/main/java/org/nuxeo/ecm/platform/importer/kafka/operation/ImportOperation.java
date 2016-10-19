@@ -65,7 +65,7 @@ public class ImportOperation implements Callable<Integer> {
     }
 
     @Override
-    public Integer call() throws Exception {
+    public Integer call() throws InterruptedException {
         Consumer<String, Message> consumer = new Consumer<>(mConsumerProps);
         consumer.subscribe(mTopics);
 
@@ -97,7 +97,8 @@ public class ImportOperation implements Callable<Integer> {
 
 
     private List<ConsumerRecord<String, Message>> process(CoreSession session, ConsumerRecords<String, Message> records) throws InterruptedException {
-        List<ConsumerRecord<String, Message>> toRecover = new ArrayList<>();
+        List<ConsumerRecord<String, Message>> recoveryList = new ArrayList<>();
+        if (records == null) return recoveryList;
 
         if (TransactionHelper.isNoTransaction()) {
             TransactionHelper.startTransaction();
@@ -109,7 +110,7 @@ public class ImportOperation implements Callable<Integer> {
                     new Importer(session).importMessage(record.value());
                 } catch (Exception e) {
                     log.error(e);
-                    toRecover.add(record);
+                    recoveryList.add(record);
 //                    TransactionHelper.setTransactionRollbackOnly();
                 }
             }
@@ -130,7 +131,7 @@ public class ImportOperation implements Callable<Integer> {
                     counter++;
                 } catch (NuxeoException e) {
                     log.error(e);
-                    toRecover.add(record);
+                    recoveryList.add(record);
 //                            TransactionHelper.setTransactionRollbackOnly();
                 }
 
@@ -141,6 +142,6 @@ public class ImportOperation implements Callable<Integer> {
             }
         }
 
-        return toRecover;
+        return recoveryList;
     }
 }
