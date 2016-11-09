@@ -5,4 +5,4 @@ batch.size=4194304
 linger.ms=0
 key.serializer=org.apache.kafka.common.serialization.StringSerializer
 value.serializer=org.nuxeo.ecm.platform.importer.kafka.serializer.MessageSerializer
-max.block.ms=10000
+max.block.ms=1000

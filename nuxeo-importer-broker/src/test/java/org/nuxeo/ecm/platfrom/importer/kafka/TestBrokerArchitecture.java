@@ -119,7 +119,7 @@ public class TestBrokerArchitecture {
         ImportManager.Result result = manager.syncImport(TOPICS);
         int imported = result.getImported();
 
-        System.out.println(
+        sLog.info(
                 String.format("Import of %d Documents finished in %f;\n" +
                                 "Speed %.2f docs/s;\n" +
                                 "------------------------------------\n" +

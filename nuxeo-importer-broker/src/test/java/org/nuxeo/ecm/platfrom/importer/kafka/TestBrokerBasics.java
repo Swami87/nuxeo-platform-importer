@@ -20,13 +20,13 @@
 
 package org.nuxeo.ecm.platfrom.importer.kafka;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.Before;
 import org.junit.Test;
 import org.nuxeo.ecm.platform.importer.kafka.avro.Message;
 import org.nuxeo.ecm.platform.importer.kafka.avro.MessageDeserializer;
@@ -54,82 +54,25 @@ import static org.nuxeo.ecm.platfrom.importer.kafka.features.KafkaOneTopicFeatur
 @Features({KafkaOneTopicFeature.class})
 public class TestBrokerBasics {
 
+    private static final Log sLog = LogFactory.getLog(TestBrokerBasics.class);
+
     private static final int COUNT = 100;
     private static final int PARTITION = 2;
 
-    private static ExecutorService es = Executors.newFixedThreadPool(4);
+    private ExecutorService mExecutorService;
 
-    @Test
-    public void testShouldSendAndReceiveMsgViaBroker() throws Exception {
-        Runnable pTask = () -> {
-            Producer<String, String> producer = null;
-            try {
-                Properties pp = ServiceHelper.loadProperties("local_producer.props");
-                pp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-
-                producer = new Producer<>(pp);
-                for (int i = 0; i < COUNT / PARTITION; i++) {
-                    ProducerRecord<String, String> pr = new ProducerRecord<>(TOPIC, "Msg", "send " + String.valueOf(i));
-                    producer.send(pr);
-                    System.out.println("sent: " + i);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                if (producer != null) {
-                    producer.flush();
-                    producer.close();
-                }
-            }
-        };
-
-        for (int i = 0; i < PARTITION; i++) {
-            es.execute(pTask);
-        }
-
-        AtomicInteger count = new AtomicInteger(0);
-        Runnable cTask = () -> {
-            try {
-                Properties cp = ServiceHelper.loadProperties("local_consumer.props");
-                cp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-
-                Consumer<String, String> consumer = new Consumer<>(cp);
-                consumer.subscribe(Collections.singletonList(TOPIC));
-
-                while (true) {
-                    ConsumerRecords<String, String> crs = consumer.poll(5000);
-                    System.out.println("received: " + crs.count());
-                    count.getAndAccumulate(crs.count(), (l,r) -> l+r);
-
-                    for (ConsumerRecord<String, String> record : crs) {
-                        System.out.println(record.value());
-                    }
-                    if (!crs.iterator().hasNext()) break;
-                }
-
-                consumer.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        };
-
-        es.execute(cTask);
-
-        es.shutdown();
-        es.awaitTermination(60, TimeUnit.MINUTES);
-
-        System.out.println(String.format("Messages received: %d", count.get()));
-        assertEquals(COUNT, count.get());
+    @Before
+    public void setup() {
+        mExecutorService = Executors.newFixedThreadPool(4);
     }
 
     @Test
-    public void testShouldUsePassAvroMessages() throws InterruptedException {
-        Runnable pTask = () -> {
-            try {
-                Properties pp = ServiceHelper.loadProperties("producer.props");
-                pp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, MessageSerializer.class.getName());
+    public void testShouldUsePassAvroMessages() throws InterruptedException, IOException {
+        Properties pp = ServiceHelper.loadProperties("producer.props");
+        pp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, MessageSerializer.class.getName());
 
-                Producer<String, Message> producer = new Producer<>(pp);
+        Runnable pTask = () -> {
+            try (Producer<String, Message> producer = new Producer<>(pp)){
                 Map<CharSequence, CharSequence> props = new HashMap<>();
                 for (int i = 0; i < COUNT / PARTITION; i++) {
                     Message msg = Message.newBuilder()
@@ -141,54 +84,42 @@ public class TestBrokerBasics {
                             .setPath("/path/" + i)
                             .setProperties(props)
                             .build();
+
                     ProducerRecord<String, Message> pr = new ProducerRecord<>(TOPIC, "Msg", msg);
                     producer.send(pr);
-                    producer.flush();
                 }
-
-                producer.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+                producer.flush();
             }
         };
 
         for (int i = 0; i < PARTITION; i++) {
-            es.execute(pTask);
+            mExecutorService.execute(pTask);
         }
 
         AtomicInteger count = new AtomicInteger(0);
-        Runnable cTask = () -> {
-            try {
-                Properties cp = ServiceHelper.loadProperties("consumer.props");
-                cp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, MessageDeserializer.class.getName());
 
-                Consumer<String, Message> consumer = new Consumer<>(cp);
+        Properties cp = ServiceHelper.loadProperties("consumer.props");
+        cp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, MessageDeserializer.class.getName());
+        Runnable cTask = () -> {
+            try (Consumer<String, Message> consumer = new Consumer<>(cp)){
                 consumer.subscribe(Collections.singletonList(TOPIC));
 
                 ConsumerRecords<String, Message> records;
                 do {
                     records = consumer.poll(2000);
-                    System.out.println("Records fetched: " + records.count());
                     count.getAndAccumulate(records.count(), (l,r) -> l+r);
-                    for (ConsumerRecord<String, Message> record : records) {
-                        System.out.println(record.value());
-                    }
                 }while (records.iterator().hasNext());
-
-                consumer.close();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
         };
 
         for (int i = 0; i < PARTITION; i++) {
-            es.execute(cTask);
+            mExecutorService.execute(cTask);
         }
 
-        es.shutdown();
-        es.awaitTermination(60, TimeUnit.MINUTES);
+        mExecutorService.shutdown();
+        mExecutorService.awaitTermination(60, TimeUnit.MINUTES);
 
-        System.out.println(String.format("Messages received: %d", count.get()));
+        sLog.info(String.format("Messages received: %d", count.get()));
         assertEquals(COUNT, count.get());
     }
 }
