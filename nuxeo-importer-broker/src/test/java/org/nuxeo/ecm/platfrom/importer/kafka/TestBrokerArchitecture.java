@@ -68,8 +68,6 @@ public class TestBrokerArchitecture {
     private static final int THREADS = 4;
     private static Integer toImport = 0;
 
-    private List<Data> mBlobsData;
-
     @Inject
     private CoreSession session;
 
@@ -101,7 +99,7 @@ public class TestBrokerArchitecture {
     @Before
     public void prepare() throws IOException {
         FileFactory factory = new FileFactory();
-        mBlobsData = factory.preImportBlobs(MAX_AMOUNT_OF_CHILDREN);
+        List<Data> blobsData = factory.preImportBlobs(MAX_AMOUNT_OF_CHILDREN);
     }
 
 
