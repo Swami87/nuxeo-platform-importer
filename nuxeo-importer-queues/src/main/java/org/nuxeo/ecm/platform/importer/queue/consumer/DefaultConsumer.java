@@ -19,7 +19,6 @@ package org.nuxeo.ecm.platform.importer.queue.consumer;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
 
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.CoreSession;
@@ -28,6 +27,7 @@ import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
 import org.nuxeo.ecm.core.api.model.PropertyNotFoundException;
 import org.nuxeo.ecm.platform.filemanager.api.FileManager;
 import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
+import org.nuxeo.ecm.platform.importer.queue.manager.QueuesManager;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 import org.nuxeo.runtime.api.Framework;
 
@@ -40,8 +40,8 @@ public class DefaultConsumer extends AbstractConsumer {
 
     protected final String rootPath;
 
-    public DefaultConsumer(ImporterLogger log, DocumentModel root, int batchSize, BlockingQueue<SourceNode> queue) {
-        super(log, root, batchSize, queue);
+    public DefaultConsumer(ImporterLogger log, DocumentModel root, int batchSize, QueuesManager queuesManager, int queue) {
+        super(log, root, batchSize, queuesManager, queue);
         fileManager = Framework.getService(FileManager.class);
         rootPath = root.getPathAsString();
     }

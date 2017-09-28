@@ -28,11 +28,11 @@ import org.nuxeo.ecm.core.api.DocumentRef;
 import org.nuxeo.ecm.core.api.UnrestrictedSessionRunner;
 import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
 import org.nuxeo.ecm.platform.importer.queue.AbstractTaskRunner;
+import org.nuxeo.ecm.platform.importer.queue.manager.QueuesManager;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 import org.nuxeo.runtime.metrics.MetricsService;
 import org.nuxeo.runtime.transaction.TransactionHelper;
 
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Thread.currentThread;
@@ -47,7 +47,9 @@ public abstract class AbstractConsumer extends AbstractTaskRunner implements Con
 
     protected final String repositoryName;
 
-    protected final BlockingQueue<SourceNode> queue;
+    protected final QueuesManager queuesManager;
+
+    protected final int queue;
 
     protected final DocumentRef rootRef;
 
@@ -83,14 +85,20 @@ public abstract class AbstractConsumer extends AbstractTaskRunner implements Con
 
     protected final Counter consumerCount;
 
-    public AbstractConsumer(ImporterLogger log, DocumentModel root, int batchSize, BlockingQueue<SourceNode> queue) {
+    protected long lastCommitTime;
+
+    protected static final long TRANSACTION_THRESOLD_MS = 3 * 60 * 1000; // 3 min
+
+    public AbstractConsumer(ImporterLogger log, DocumentModel root, int batchSize, QueuesManager queuesManager, int queue) {
         this.log = log;
         repositoryName = root.getRepositoryName();
         this.batch = new Batch(batchSize);
+        this.queuesManager = queuesManager;
         this.queue = queue;
         rootRef = root.getRef();
         importStat = new ImportStat();
 
+        lastCommitTime = System.currentTimeMillis();
         processTimer = registry.timer(MetricRegistry.name("nuxeo", "importer", "queue", "consumer", "import"));
         commitTimer = registry.timer(MetricRegistry.name("nuxeo", "importer", "queue", "consumer", "commit"));
         retryCount = registry.counter(MetricRegistry.name("nuxeo", "importer", "queue", "consumer", "retry"));
@@ -127,7 +135,7 @@ public abstract class AbstractConsumer extends AbstractTaskRunner implements Con
         log.error("Consumer is broken, draining the queue to rejected");
         do {
             try {
-                SourceNode src = queue.poll(1, TimeUnit.SECONDS);
+                SourceNode src = queuesManager.poll(queue, 1, TimeUnit.SECONDS);
                 if (src == null && canStop) {
                     log.info("End of broken consumer, processed node: " + getNbProcessed());
                     break;
@@ -155,13 +163,13 @@ public abstract class AbstractConsumer extends AbstractTaskRunner implements Con
                 SourceNode src;
                 while (true) {
                     try {
-                        src = queue.poll(1, TimeUnit.SECONDS);
+                        src = queuesManager.poll(queue, 1, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         log.error("Interrupted exception received, stopping consumer");
                         break;
                     }
                     if (src == null) {
-                        log.debug("Poll timeout, queue size:" + queue.size());
+                        log.debug("Poll timeout, queue size:" + queuesManager.size(queue));
                         if (canStop) {
                             log.info("End of consumer, processed node: " + getNbProcessed());
                             break;
@@ -231,10 +239,16 @@ public abstract class AbstractConsumer extends AbstractTaskRunner implements Con
 
     protected abstract void process(CoreSession session, SourceNode bh) throws Exception;
 
+    /**
+     * commit if batch is full or if transaction is running for more than 5 min.
+     */
     protected void commitIfNeeded(CoreSession session) {
-        if (batch.isFull()) {
+        long t = System.currentTimeMillis();
+        if (batch.isFull() || (t - lastCommitTime > TRANSACTION_THRESOLD_MS)) {
+            if (! batch.isFull()) {
+                log.warn("Force batch commit because transaction time is too long, current batch size: " + batch.size());
+            }
             commit(session);
-            long t = System.currentTimeMillis();
             if (t - lastCheckTime > CHECK_INTERVAL) {
                 lastImediatThroughput = 1000 * (nbProcessed.get() - lastCount + 0.0) / (t - lastCheckTime);
                 lastCount = nbProcessed.get();
@@ -254,6 +268,7 @@ public abstract class AbstractConsumer extends AbstractTaskRunner implements Con
                 startTransaction();
             } finally {
                 stopWatch.stop();
+                lastCommitTime = System.currentTimeMillis();
             }
 
         }

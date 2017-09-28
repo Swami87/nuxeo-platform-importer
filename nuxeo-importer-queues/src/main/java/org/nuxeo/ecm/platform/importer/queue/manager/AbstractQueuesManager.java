@@ -16,55 +16,35 @@
  */
 package org.nuxeo.ecm.platform.importer.queue.manager;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.Random;
 
 import org.nuxeo.ecm.platform.importer.log.ImporterLogger;
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
+
 
 /**
  * @since 8.3
  */
 public abstract class AbstractQueuesManager implements QueuesManager {
 
-    final List<BlockingQueue<SourceNode>> queues;
-
-    protected final int maxQueueSize;
-
+    protected final int queuesNb;
     protected final ImporterLogger log;
+    private final Random rand;
 
-    public AbstractQueuesManager(ImporterLogger logger, int queuesNb, int maxQueueSize) {
-        this.maxQueueSize = maxQueueSize;
-        queues = new ArrayList<BlockingQueue<SourceNode>>(queuesNb);
-        for (int i = 0; i < queuesNb; i++) {
-            queues.add(new ArrayBlockingQueue<>(maxQueueSize));
-        }
+    public AbstractQueuesManager(ImporterLogger logger, int queuesNb) {
+        this.queuesNb = queuesNb;
         log = logger;
+        rand = new Random(System.currentTimeMillis());
+    }
+
+    @Deprecated
+    protected int getTargetQueue(SourceNode bh, int nbQueues) {
+        return rand.nextInt(nbQueues);
     }
 
     @Override
-    public BlockingQueue<SourceNode> getQueue(int idx) {
-        return queues.get(idx);
+    public int count() {
+        return queuesNb;
     }
 
-    @Override
-    public boolean isQueueEmpty(int idQueue) {
-        return queues.get(idQueue).isEmpty();
-    }
-
-    @Override
-    public int dispatch(SourceNode bh) throws InterruptedException {
-        int idx = getTargetQueue(bh, queues.size());
-        getQueue(idx).put(bh);
-        return idx;
-    }
-
-    protected abstract int getTargetQueue(SourceNode bh, int nbQueues);
-
-    @Override
-    public int getNBConsumers() {
-        return queues.size();
-    }
 }

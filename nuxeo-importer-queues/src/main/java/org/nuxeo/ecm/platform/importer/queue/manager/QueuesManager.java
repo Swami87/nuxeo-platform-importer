@@ -17,20 +17,68 @@
 package org.nuxeo.ecm.platform.importer.queue.manager;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import org.nuxeo.ecm.platform.importer.source.SourceNode;
 
 /**
+ * This interface should be renamed into CompoundQueues or simply MultiQueues
+ *
  * @since 8.3
  */
 public interface QueuesManager {
 
-    BlockingQueue<SourceNode> getQueue(int idx);
+    /**
+     * Returns the number of queues
+     */
+    int count();
 
+    /**
+     * Put a node into a queue
+     *
+     * @throws InterruptedException
+     */
+    void put(int queue, SourceNode node) throws InterruptedException;
+
+    /**
+     * Get a node from a queue.
+     *
+     */
+    SourceNode poll(int queue);
+
+    /**
+     * Get a node from a queue, with a timeout.
+     *
+     * @throws InterruptedException
+     */
+    SourceNode poll(int queue, long timeout, TimeUnit unit) throws InterruptedException;
+
+    /**
+     * Returns true if there is no element in the queue.
+     */
+    boolean isEmpty(int queue);
+
+    /**
+     * Returns the number of elements in the queue.
+     */
+    int size(int queue);
+
+    /**
+     * Dispatch the node to a queue
+     * @param node
+     * @return the queue number
+     * @throws InterruptedException
+     */
+    @Deprecated
     int dispatch(SourceNode node) throws InterruptedException;
 
+    /**
+     * use getQueueCount instead
+     * @return
+     */
+    @Deprecated
     int getNBConsumers();
 
-    boolean isQueueEmpty(int idQueue);
-
+    @Deprecated
+    BlockingQueue<SourceNode> getQueue(int idx);
 }
